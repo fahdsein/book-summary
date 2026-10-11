@@ -1,319 +1,201 @@
-const STORAGE_KEY = "shelfnotes.books.v1";
+const LEGACY_STORAGE_KEY = "shelfnotes.books.v1";
+const MIGRATION_KEY = "shelfnotes.database-migrated.v2";
 const THEME_KEY = "shelfnotes.theme.v1";
+const ADMIN_SESSION_KEY = "shelfnotes.admin-token";
 const THEMES = new Set(["system", "vintage", "midnight", "matcha", "terracotta", "nordic", "lavender", "anthropologist", "autumn", "monolith", "seaside"]);
-const COLORS = new Set(["sage", "amber", "burgundy", "navy", "plum", "teal"]);
 const $ = (selector) => document.querySelector(selector);
-
-function dateOffset(days) {
-  const date = new Date();
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
-}
-
-const seedBooks = () => [
-  {
-    id: "seed-atomic-habits", title: "Atomic Habits", author: "James Clear", genre: "Psychology", rating: 5,
-    finishedAt: dateOffset(0), color: "sage",
-    bigIdea: "Small repeated improvements compound into meaningful change when they are supported by a practical system and a believable identity.",
-    takeaways: ["Design the environment so the desired action is obvious.", "Make a good habit easy to begin and satisfying to complete.", "Track the identity your repeated actions are reinforcing."],
-    quote: "Every action is evidence for the person you are becoming.",
-    audience: "Readers who want a practical framework for building or changing everyday habits."
-  },
-  {
-    id: "seed-deep-work", title: "Deep Work", author: "Cal Newport", genre: "Non-Fiction", rating: 5,
-    finishedAt: dateOffset(1), color: "navy",
-    bigIdea: "Uninterrupted concentration is a trainable skill that creates unusually valuable work in an increasingly distracted world.",
-    takeaways: ["Schedule demanding work instead of waiting for free time.", "Reduce attention residue by grouping shallow tasks.", "Rest and boredom are part of rebuilding concentration."],
-    quote: "Clarity about what matters makes it easier to ignore what does not.",
-    audience: "Knowledge workers, students, and creators who need longer periods of focused thought."
-  },
-  {
-    id: "seed-thinking", title: "Thinking, Fast and Slow", author: "Daniel Kahneman", genre: "Psychology", rating: 4,
-    finishedAt: dateOffset(2), color: "amber",
-    bigIdea: "Judgment moves between fast intuition and slower deliberate reasoning, and each mode has predictable strengths and blind spots.",
-    takeaways: ["Easy stories can feel more certain than the evidence deserves.", "Losses often influence decisions more strongly than equal gains.", "Pause when a decision contains unfamiliar risk or seductive statistics."],
-    quote: "Confidence and accuracy are not the same thing.",
-    audience: "Anyone interested in decisions, behavioral economics, and the limits of intuition."
-  },
-  {
-    id: "seed-pragmatic", title: "The Pragmatic Programmer", author: "Andrew Hunt & David Thomas", genre: "Technology", rating: 5,
-    finishedAt: dateOffset(3), color: "teal",
-    bigIdea: "Software development is a craft strengthened by responsibility, feedback, adaptable design, and continuous learning.",
-    takeaways: ["Keep knowledge in one authoritative place.", "Prefer reversible decisions when uncertainty is high.", "Use automation and feedback to protect quality."],
-    quote: "Offer options and a plan instead of an excuse.",
-    audience: "Developers and technical leads who want durable habits for building maintainable software."
-  }
-];
-
-let books = loadBooks();
+let books = [];
 let activeGenre = "All";
 let activeBookId = null;
 let toastTimer;
 
-function normalizeBook(value) {
-  if (!value || typeof value !== "object") throw new Error("Each book must be an object.");
-  const text = (field, maximum, required = true) => {
-    const result = String(value[field] || "").trim().slice(0, maximum);
-    if (required && !result) throw new Error(`Book ${field} is required.`);
-    return result;
-  };
-  const takeaways = Array.isArray(value.takeaways)
-    ? value.takeaways.map((item) => String(item).trim().slice(0, 300)).filter(Boolean).slice(0, 12)
-    : String(value.takeaways || "").split(/\r?\n|,/).map((item) => item.trim().slice(0, 300)).filter(Boolean).slice(0, 12);
-  if (!takeaways.length) throw new Error("Each book needs at least one takeaway.");
-  const finishedAt = /^\d{4}-\d{2}-\d{2}$/.test(String(value.finishedAt || "")) ? value.finishedAt : dateOffset(0);
-  return {
-    id: text("id", 100, false) || (crypto.randomUUID?.() || `book-${Date.now()}-${Math.random().toString(16).slice(2)}`),
-    title: text("title", 100), author: text("author", 80), genre: text("genre", 40),
-    rating: Math.min(5, Math.max(1, Number.parseInt(value.rating, 10) || 3)),
-    finishedAt, color: COLORS.has(value.color) ? value.color : "sage",
-    bigIdea: text("bigIdea", 600), takeaways,
-    quote: text("quote", 300, false), audience: text("audience", 300)
-  };
+function dateOffset(days) {
+  const date = new Date(); date.setHours(12,0,0,0); date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0,10);
 }
 
-function loadBooks() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (Array.isArray(saved)) return saved.map(normalizeBook);
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  return seedBooks();
+async function api(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const token = sessionStorage.getItem(ADMIN_SESSION_KEY);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(path, { ...options, headers });
+  const text = await response.text();
+  let payload = {};
+  try { payload = JSON.parse(text || "{}"); } catch { payload = {}; }
+  if (!response.ok) throw new Error(payload.message || payload.error || `Request failed with HTTP ${response.status}`);
+  return payload;
 }
 
-function saveBooks() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-  } catch {
-    showToast("Browser storage is unavailable. Export your notes before leaving.");
-  }
+function setNotice(message = "") {
+  const notice = $("#service-notice");
+  notice.textContent = message;
+  notice.hidden = !message;
 }
 
 function showToast(message) {
-  const toast = $("#toast");
-  toast.textContent = message;
-  toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
+  const toast = $("#toast"); toast.textContent = message; toast.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 3600);
+}
+
+function localBooks() {
+  try {
+    const value = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "null");
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+
+async function loadLibrary() {
+  setNotice("");
+  try {
+    const initial = await api("/api/books");
+    books = initial.books || [];
+  } catch (error) {
+    books = localBooks();
+    setNotice(`Persistent storage is unavailable: ${error.message}. Existing browser notes are shown read-only; attach NEO DB and Object Storage, then redeploy.`);
+    render();
+    return;
+  }
+
+  const legacy = localBooks();
+  if (!localStorage.getItem(MIGRATION_KEY) && legacy.length && sessionStorage.getItem(ADMIN_SESSION_KEY)) {
+    try {
+      const migrated = await api("/api/books/import", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ books:legacy }) });
+      books = migrated.books || books;
+      localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
+      showToast(`Migrated ${migrated.imported} browser summaries into NEO DB.`);
+    } catch (error) {
+      setNotice(`The database is available, but browser-note migration failed: ${error.message}. Check ADMIN_TOKEN and try Admin access again.`);
+    }
+  } else if (!localStorage.getItem(MIGRATION_KEY) && legacy.length) {
+    setNotice("Existing browser-only summaries are available to migrate. Choose Admin access, enter ADMIN_TOKEN, then the app will merge them into NEO DB.");
+  }
+  render();
 }
 
 function displayDate(value) {
   const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(date);
+  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(undefined,{day:"numeric",month:"short",year:"numeric"}).format(date);
 }
 
 function create(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
+  const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
 }
-
-function ratingText(rating) {
-  return "★".repeat(rating) + "☆".repeat(5 - rating);
-}
+function ratingText(rating) { return "★".repeat(rating) + "☆".repeat(5-rating); }
 
 function bookCard(book) {
-  const article = create("article", "book-card");
-  const button = create("button", "book-open");
-  button.type = "button";
-  button.setAttribute("aria-label", `Open summary for ${book.title}`);
-  button.addEventListener("click", () => openDetails(book.id));
-
-  const cover = create("div", `book-cover cover--${book.color}`);
-  cover.append(create("span", "badge", book.genre));
-  const titleGroup = create("div");
-  titleGroup.append(create("h3", "", book.title), create("p", "", `by ${book.author}`));
-  cover.append(titleGroup);
-
-  const note = create("div", "book-note");
-  note.append(create("p", "", book.bigIdea));
-  const meta = create("div", "book-meta");
-  const stars = create("span", "stars", ratingText(book.rating));
-  stars.setAttribute("aria-label", `${book.rating} out of 5 stars`);
-  meta.append(stars, create("span", "", displayDate(book.finishedAt)));
-  note.append(meta);
-  button.append(cover, note);
-  article.append(button);
-  return article;
+  const article = create("article","book-card");
+  const button = create("button","book-open"); button.type = "button"; button.setAttribute("aria-label",`Open summary for ${book.title}`); button.addEventListener("click",()=>openDetails(book.id));
+  const cover = create("div",`book-cover cover--${book.color}${book.coverUrl ? " has-image" : ""}`);
+  if (book.coverUrl) {
+    const image = create("img","cover-image"); image.src = book.coverUrl; image.alt = ""; image.loading = "lazy";
+    image.addEventListener("error",()=>{ image.remove(); cover.classList.remove("has-image"); }); cover.append(image);
+  }
+  cover.append(create("span","badge",book.genre));
+  const titleGroup = create("div"); titleGroup.append(create("h3","",book.title),create("p","",`by ${book.author}`)); cover.append(titleGroup);
+  const note = create("div","book-note"); note.append(create("p","",book.bigIdea));
+  const meta = create("div","book-meta"); const stars = create("span","stars",ratingText(book.rating)); stars.setAttribute("aria-label",`${book.rating} out of 5 stars`); meta.append(stars,create("span","",displayDate(book.finishedAt))); note.append(meta);
+  button.append(cover,note); article.append(button); return article;
 }
 
 function visibleBooks() {
   const query = $("#search").value.trim().toLocaleLowerCase();
-  return books.filter((book) => {
+  return books.filter((book)=>{
     const genreMatches = activeGenre === "All" || book.genre === activeGenre;
-    const searchable = [book.title, book.author, book.genre, book.bigIdea, book.audience, ...book.takeaways].join(" ").toLocaleLowerCase();
+    const searchable = [book.title,book.author,book.genre,book.bigIdea,book.audience,...book.takeaways].join(" ").toLocaleLowerCase();
     return genreMatches && (!query || searchable.includes(query));
   });
 }
 
 function renderFilters() {
-  const genres = ["All", ...new Set(books.map((book) => book.genre).sort((a, b) => a.localeCompare(b)))];
+  const genres = ["All",...new Set(books.map((book)=>book.genre).sort((a,b)=>a.localeCompare(b)))];
   if (!genres.includes(activeGenre)) activeGenre = "All";
-  const root = $("#genre-filters");
-  root.replaceChildren(...genres.map((genre) => {
-    const button = create("button", `filter${genre === activeGenre ? " active" : ""}`, genre === "All" ? "All books" : genre);
-    button.type = "button";
-    button.setAttribute("aria-pressed", String(genre === activeGenre));
-    button.addEventListener("click", () => { activeGenre = genre; render(); });
-    return button;
+  $("#genre-filters").replaceChildren(...genres.map((genre)=>{
+    const button = create("button",`filter${genre === activeGenre ? " active" : ""}`,genre === "All" ? "All books" : genre); button.type = "button"; button.setAttribute("aria-pressed",String(genre === activeGenre));
+    button.addEventListener("click",()=>{activeGenre=genre;render();}); return button;
   }));
 }
 
 function readingStreak() {
-  const dates = [...new Set(books.map((book) => book.finishedAt))].sort().reverse();
-  if (!dates.length) return 0;
-  let count = 1;
-  let previous = new Date(`${dates[0]}T12:00:00`);
-  for (const value of dates.slice(1)) {
-    const current = new Date(`${value}T12:00:00`);
-    const difference = Math.round((previous - current) / 86_400_000);
-    if (difference !== 1) break;
-    count += 1;
-    previous = current;
-  }
+  const dates = [...new Set(books.map((book)=>book.finishedAt))].sort().reverse(); if (!dates.length) return 0;
+  let count=1; let previous=new Date(`${dates[0]}T12:00:00`);
+  for (const value of dates.slice(1)) { const current=new Date(`${value}T12:00:00`); if (Math.round((previous-current)/86400000)!==1) break; count+=1; previous=current; }
   return count;
 }
 
 function updateStats() {
-  $("#stat-books").textContent = books.length;
-  $("#stat-streak").textContent = readingStreak();
-  const counts = new Map();
-  for (const book of books) counts.set(book.genre, (counts.get(book.genre) || 0) + 1);
-  const top = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-  $("#stat-genre").textContent = top?.[0] || "—";
+  $("#stat-books").textContent=books.length; $("#stat-streak").textContent=readingStreak();
+  const counts=new Map(); for(const book of books) counts.set(book.genre,(counts.get(book.genre)||0)+1);
+  $("#stat-genre").textContent=[...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0]||"—";
 }
 
 function render() {
-  renderFilters();
-  updateStats();
-  const filtered = visibleBooks();
-  $("#books-grid").replaceChildren(...filtered.map(bookCard));
-  $("#books-grid").hidden = filtered.length === 0;
-  $("#empty-state").hidden = filtered.length !== 0;
-  $("#result-count").textContent = `${filtered.length} of ${books.length} ${books.length === 1 ? "book" : "books"}`;
+  renderFilters(); updateStats(); const filtered=visibleBooks();
+  $("#books-grid").replaceChildren(...filtered.map(bookCard)); $("#books-grid").hidden=filtered.length===0; $("#empty-state").hidden=filtered.length!==0;
+  $("#result-count").textContent=`${filtered.length} of ${books.length} ${books.length===1?"book":"books"}`;
 }
 
 function openDetails(id) {
-  const book = books.find((item) => item.id === id);
-  if (!book) return;
-  activeBookId = id;
-  $("#detail-cover").className = `detail-cover cover--${book.color}`;
-  $("#detail-genre").textContent = book.genre;
-  $("#detail-date").textContent = `Finished ${displayDate(book.finishedAt)}`;
-  $("#detail-title").textContent = book.title;
-  $("#detail-author").textContent = `by ${book.author}`;
-  $("#detail-rating").textContent = ratingText(book.rating);
-  $("#detail-rating").setAttribute("aria-label", `${book.rating} out of 5 stars`);
-  $("#detail-idea").textContent = book.bigIdea;
-  $("#detail-takeaways").replaceChildren(...book.takeaways.map((value) => create("li", "", value)));
-  $("#detail-quote").textContent = book.quote ? `“${book.quote}”` : "No memorable line was recorded.";
-  $("#detail-audience").textContent = book.audience;
+  const book=books.find((item)=>item.id===id); if(!book)return; activeBookId=id;
+  const cover=$("#detail-cover"); cover.className=`detail-cover cover--${book.color}${book.coverUrl?" has-image":""}`; cover.style.backgroundImage=book.coverUrl?`url("${book.coverUrl}")`:"";
+  $("#detail-genre").textContent=book.genre; $("#detail-date").textContent=`Finished ${displayDate(book.finishedAt)}`; $("#detail-title").textContent=book.title; $("#detail-author").textContent=`by ${book.author}`;
+  $("#detail-rating").textContent=ratingText(book.rating); $("#detail-rating").setAttribute("aria-label",`${book.rating} out of 5 stars`); $("#detail-idea").textContent=book.bigIdea;
+  $("#detail-takeaways").replaceChildren(...book.takeaways.map((value)=>create("li","",value))); $("#detail-quote").textContent=book.quote?`“${book.quote}”`:"No memorable line was recorded."; $("#detail-audience").textContent=book.audience;
   $("#detail-dialog").showModal();
 }
 
-function openBookForm() {
-  $("#book-form").reset();
-  $("#book-date").value = dateOffset(0);
-  $("#book-dialog").showModal();
-  $("#book-title").focus();
-}
+function openBookForm() { $("#book-form").reset(); $("#book-date").value=dateOffset(0); $("#book-dialog").showModal(); $("#book-title").focus(); }
+function closeDialog(id){const dialog=document.getElementById(id);if(dialog?.open)dialog.close();}
 
-function closeDialog(id) {
-  const dialog = document.getElementById(id);
-  if (dialog?.open) dialog.close();
+function updateAdminState() {
+  $("#admin-access").textContent = sessionStorage.getItem(ADMIN_SESSION_KEY) ? "Admin active" : "Admin access";
 }
 
 function applyTheme(selected) {
-  const theme = THEMES.has(selected) ? selected : "system";
-  const resolved = theme === "system"
-    ? (matchMedia("(prefers-color-scheme: dark)").matches ? "midnight" : "matcha")
-    : theme;
-  document.documentElement.dataset.theme = resolved;
-  $("#theme-select").value = theme;
-  document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  const theme=THEMES.has(selected)?selected:"system"; const resolved=theme==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"midnight":"matcha"):theme;
+  document.documentElement.dataset.theme=resolved; $("#theme-select").value=theme; document.querySelector('meta[name="theme-color"]').content=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
 }
 
 function exportBooks() {
-  const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), books }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `shelfnotes-${dateOffset(0)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showToast("Book summaries exported.");
+  const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),books},null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const link=document.createElement("a"); link.href=url; link.download=`shelfnotes-${dateOffset(0)}.json`; link.click(); URL.revokeObjectURL(url); showToast("Persistent library exported.");
 }
 
-async function importBooks(file) {
-  if (!file) return;
+async function importBookFile(file) {
+  if(!file)return;
   try {
-    const parsed = JSON.parse(await file.text());
-    const values = Array.isArray(parsed) ? parsed : parsed.books;
-    if (!Array.isArray(values) || values.length > 500) throw new Error("The file must contain at most 500 books.");
-    const imported = values.map(normalizeBook);
-    if (!confirm(`Replace this browser's ${books.length} summaries with ${imported.length} imported summaries?`)) return;
-    books = imported;
-    saveBooks();
-    activeGenre = "All";
-    $("#search").value = "";
-    render();
-    showToast("Book summaries imported.");
-  } catch (error) {
-    showToast(`Import failed: ${error.message}`);
-  } finally {
-    $("#import-file").value = "";
-  }
+    const parsed=JSON.parse(await file.text());
+    const result=await api("/api/books/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(parsed)});
+    books=result.books||[]; activeGenre="All"; $("#search").value=""; render(); showToast(`Merged ${result.imported} summaries. Your library now has ${result.total} books.`);
+  } catch(error){showToast(`Import failed: ${error.message}`);} finally{$("#import-file").value="";}
 }
 
-$("#book-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const values = Object.fromEntries(new FormData(event.currentTarget));
-  values.id = crypto.randomUUID?.() || `book-${Date.now()}`;
-  values.takeaways = String(values.takeaways).split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+async function uploadCover(book,file) {
+  if(!file)return book;
+  if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Cover must be JPEG, PNG, or WebP.");
+  if(file.size>5*1024*1024)throw new Error("Cover image must be 5 MiB or smaller.");
+  const result=await api(`/api/books/${encodeURIComponent(book.id)}/cover`,{method:"POST",headers:{"Content-Type":file.type},body:file}); return result.book;
+}
+
+$("#book-form").addEventListener("submit",async(event)=>{
+  event.preventDefault(); const submit=event.currentTarget.querySelector('[type="submit"]'); submit.disabled=true; submit.textContent="Saving…";
+  const form=new FormData(event.currentTarget); const cover=form.get("cover"); const values=Object.fromEntries(form); delete values.cover; values.takeaways=String(values.takeaways).split(/\r?\n|,/).map((item)=>item.trim()).filter(Boolean);
   try {
-    books.unshift(normalizeBook(values));
-    saveBooks();
-    closeDialog("book-dialog");
-    activeGenre = "All";
-    $("#search").value = "";
-    render();
-    showToast("Book summary saved in this browser.");
-  } catch (error) {
-    showToast(error.message);
-  }
+    let result=await api("/api/books",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)}); let coverWarning="";
+    if(cover?.size){try{result.book=await uploadCover(result.book,cover);}catch(error){coverWarning=` The summary was saved, but its cover failed: ${error.message}`;}}
+    books=[result.book,...books.filter((book)=>book.id!==result.book.id)]; closeDialog("book-dialog"); activeGenre="All"; $("#search").value=""; render(); showToast(`Book summary saved in NEO DB.${coverWarning}`);
+  } catch(error){showToast(`Save failed: ${error.message}`);} finally{submit.disabled=false;submit.textContent="Save summary";}
 });
 
-$("#delete-book").addEventListener("click", () => {
-  const book = books.find((item) => item.id === activeBookId);
-  if (!book || !confirm(`Delete “${book.title}” from this browser?`)) return;
-  books = books.filter((item) => item.id !== activeBookId);
-  saveBooks();
-  closeDialog("detail-dialog");
-  activeBookId = null;
-  render();
-  showToast("Book summary deleted.");
+$("#delete-book").addEventListener("click",async()=>{
+  const book=books.find((item)=>item.id===activeBookId); if(!book||!confirm(`Delete “${book.title}” and its stored cover?`))return;
+  try{await api(`/api/books/${encodeURIComponent(book.id)}`,{method:"DELETE"});books=books.filter((item)=>item.id!==book.id);closeDialog("detail-dialog");activeBookId=null;render();showToast("Book summary deleted from NEO DB.");}catch(error){showToast(`Delete failed: ${error.message}`);}
 });
 
-$("#search").addEventListener("input", render);
-$("#open-add").addEventListener("click", openBookForm);
-$("#empty-add").addEventListener("click", openBookForm);
-$("#export-books").addEventListener("click", exportBooks);
-$("#import-books").addEventListener("click", () => $("#import-file").click());
-$("#import-file").addEventListener("change", (event) => importBooks(event.target.files[0]));
-$("#theme-select").addEventListener("change", (event) => {
-  localStorage.setItem(THEME_KEY, event.target.value);
-  applyTheme(event.target.value);
-});
-document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => closeDialog(button.dataset.close)));
-document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => {
-  if (event.target === dialog) dialog.close();
-}));
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  if ((localStorage.getItem(THEME_KEY) || "system") === "system") applyTheme("system");
-});
+$("#search").addEventListener("input",render); $("#open-add").addEventListener("click",openBookForm); $("#empty-add").addEventListener("click",openBookForm); $("#export-books").addEventListener("click",exportBooks); $("#import-books").addEventListener("click",()=>$("#import-file").click()); $("#import-file").addEventListener("change",(event)=>importBookFile(event.target.files[0]));
+$("#admin-access").addEventListener("click",()=>{$("#admin-token").value="";$("#admin-dialog").showModal();$("#admin-token").focus();});
+$("#admin-form").addEventListener("submit",(event)=>{event.preventDefault();sessionStorage.setItem(ADMIN_SESSION_KEY,$("#admin-token").value.trim());closeDialog("admin-dialog");updateAdminState();showToast("Administrator token enabled for this browser tab.");loadLibrary();});
+$("#clear-admin").addEventListener("click",()=>{sessionStorage.removeItem(ADMIN_SESSION_KEY);closeDialog("admin-dialog");updateAdminState();showToast("Administrator token cleared.");});
+$("#theme-select").addEventListener("change",(event)=>{localStorage.setItem(THEME_KEY,event.target.value);applyTheme(event.target.value);});
+document.querySelectorAll("[data-close]").forEach((button)=>button.addEventListener("click",()=>closeDialog(button.dataset.close))); document.querySelectorAll("dialog").forEach((dialog)=>dialog.addEventListener("click",(event)=>{if(event.target===dialog)dialog.close();}));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if((localStorage.getItem(THEME_KEY)||"system")==="system")applyTheme("system");});
 
-applyTheme(localStorage.getItem(THEME_KEY) || "system");
-render();
+applyTheme(localStorage.getItem(THEME_KEY)||"system"); updateAdminState(); render(); loadLibrary();

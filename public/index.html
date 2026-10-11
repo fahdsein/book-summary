@@ -32,6 +32,7 @@
             <option value="seaside">Seaside Journal</option>
           </select>
         </label>
+        <button id="admin-access" class="button quiet" type="button">Admin access</button>
         <button id="open-add" class="button primary" type="button"><span aria-hidden="true">＋</span> Add summary</button>
       </div>
     </header>
@@ -41,7 +42,7 @@
         <div class="hero-copy">
           <p class="eyebrow">A quiet place for useful ideas</p>
           <h1 id="page-title">Read deeply.<br><em>Remember clearly.</em></h1>
-          <p>Collect the central idea, practical lessons, and memorable lines from every book worth returning to.</p>
+          <p>Collect the central idea, practical lessons, memorable lines, and cover art from every book worth returning to.</p>
         </div>
         <div class="stats" aria-label="Reading statistics">
           <article><strong id="stat-books">0</strong><span>Books noted</span></article>
@@ -61,6 +62,7 @@
           <input id="import-file" type="file" accept="application/json,.json" hidden>
         </div>
       </section>
+      <div id="service-notice" class="service-notice" role="status" hidden></div>
 
       <nav id="genre-filters" class="filters" aria-label="Filter by genre"></nav>
 
@@ -77,7 +79,7 @@
       </section>
     </main>
 
-    <footer><span>ShelfNotes</span><p>Stored privately in this browser. Export a backup before clearing browser data.</p></footer>
+    <footer><span>ShelfNotes</span><p>Summaries are stored in NEO DB; uploaded covers are stored in S3-compatible Object Storage.</p></footer>
 
     <dialog id="detail-dialog" class="dialog detail-dialog" aria-labelledby="detail-title">
       <button class="dialog-close" type="button" data-close="detail-dialog" aria-label="Close details">×</button>
@@ -115,12 +117,22 @@
           </select></label>
           <label>Finished on<input id="book-date" name="finishedAt" type="date" required></label>
           <label>Cover color<select id="book-color" name="color"><option value="sage">Sage</option><option value="amber">Amber</option><option value="burgundy">Burgundy</option><option value="navy">Navy</option><option value="plum">Plum</option><option value="teal">Teal</option></select></label>
+          <label>Book cover image<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small>Optional · JPEG, PNG, or WebP · maximum 5 MiB</small></label>
         </div>
         <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
         <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="1200" rows="4" placeholder="One takeaway per line"></textarea></label>
         <label>Memorable line<input id="book-quote" name="quote" maxlength="300" placeholder="Optional short quotation or your own note"></label>
         <label>Who should read it<input id="book-audience" name="audience" required maxlength="300"></label>
         <div class="dialog-actions"><button class="button quiet" type="button" data-close="book-dialog">Cancel</button><button class="button primary" type="submit">Save summary</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="admin-dialog" class="dialog admin-dialog" aria-labelledby="admin-title">
+      <button class="dialog-close" type="button" data-close="admin-dialog" aria-label="Close administrator access">×</button>
+      <div class="dialog-intro"><p class="eyebrow">Protected changes</p><h2 id="admin-title">Administrator access</h2><p>Enter the same value configured as <code>ADMIN_TOKEN</code> on the NEO App Web Service. It stays only in this browser tab.</p></div>
+      <form id="admin-form">
+        <label>Admin token<input id="admin-token" type="password" required autocomplete="off"></label>
+        <div class="dialog-actions"><button id="clear-admin" class="button quiet" type="button">Clear access</button><button class="button primary" type="submit">Use token</button></div>
       </form>
     </dialog>
 

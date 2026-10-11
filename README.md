@@ -1,36 +1,110 @@
 # ShelfNotes Book Summary
 
-ShelfNotes is a self-contained digital bookshelf for saving and revisiting personal book summaries. It is designed to deploy as one public NEO App Web Service with no database or external API.
+ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private JPEG, PNG, or WebP cover files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
-## Included functionality
+## What is included
 
-- Responsive book-summary cards and detailed reading-note dialog
-- Search across title, author, genre, big idea, audience, and takeaways
-- Dynamic genre filters
-- Add and delete summaries
-- Browser-local persistence with `localStorage`
-- JSON export and import for backup or browser migration
-- Total-book, consecutive-reading-day, and top-genre statistics
-- System theme plus all ten supplied color palettes
-- Accessible native dialogs and keyboard focus states
-- Dependency-free Node.js server
-- `/healthz` and `/readyz` NEO App probes
-- Container health check, security headers, and graceful shutdown
+- Add, browse, search, filter, export, import, and delete summaries
+- Persistent PostgreSQL storage shared by browsers and devices
+- Merge/upsert JSON import with a 500-book limit per file
+- Cover upload to S3-compatible Object Storage, maximum 5 MiB
+- Same-origin cover delivery, so the S3 bucket can remain private
+- Production write protection with `ADMIN_TOKEN`
+- One-time migration of data saved by the older browser-only version
+- `/healthz` liveness and `/readyz` dependency checks
+- Dockerfile, non-root runtime, graceful shutdown, and security headers
 
-## Important storage behavior
+## Before deploying
 
-Book summaries are stored in the visitor's browser—not in the NEO App container. This is intentional for the current personal bookshelf design:
+Create these two NEO App resources in the same project:
 
-- Data survives page reloads and ordinary redeployments when the same browser storage remains available.
-- Data does not automatically synchronize between browsers, devices, or users.
-- Clearing site data removes locally saved books.
-- Use **Export JSON** regularly and **Import JSON** to restore or move the library.
+1. A **NEO DB / PostgreSQL** database.
+2. An **S3-compatible Object Storage** bucket for book covers.
 
-A database is not required for this version. Add NEO DB and user authentication only if shared accounts or multi-device synchronization become requirements.
+Copy their connection values into the Web Service environment variables described below. Do not commit real passwords, access keys, or `ADMIN_TOKEN` to Git.
+
+## Deploy on NEO App
+
+### 1. Create the database
+
+1. Open the target NEO App project.
+2. Create a PostgreSQL/NEO DB resource.
+3. Wait until it is ready.
+4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
+
+The service can create its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. For a controlled production release, let the first deployment create the table, then optionally change this value to `false`.
+
+### 2. Create Object Storage
+
+1. Create or select an S3-compatible bucket.
+2. Keep the bucket private; public-read access is not required.
+3. Create credentials permitted to read, write, and delete objects in that bucket.
+4. Record the endpoint, region, bucket name, access key, and secret key.
+
+### 3. Create the Web Service
+
+| NEO App field | Value |
+|---|---|
+| Service name | `shelfnotes` |
+| Repository URL | Your Git repository URL |
+| Branch | `main` or your actual branch |
+| Git profile | Public repo, or connect your account for a private repo |
+| Root directory | `demo-example/book-summary` in this monorepo; blank if this folder is the repository root |
+| Build method | Build File / Dockerfile |
+| Build file | `Dockerfile` |
+| Start command | Leave empty |
+| Container/service port | `3000` |
+| Health-check path | `/healthz` |
+| Readiness path | `/readyz`, when available |
+| Public access | Enabled |
+
+Attach the NEO DB if the form provides an attachment control. The important result is that the Web Service receives a usable `DATABASE_URL`.
+
+### 4. Add environment variables
+
+| Variable | Required value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | PostgreSQL connection string from NEO DB |
+| `DATABASE_AUTO_MIGRATE` | `true` for the initial deployment |
+| `ADMIN_TOKEN` | A long, random secret known only to administrators |
+| `S3_ENDPOINT` | Full S3-compatible endpoint URL, including `https://` |
+| `S3_REGION` | Storage region, or `us-east-1` when the provider requires a value but does not specify one |
+| `S3_BUCKET` | Existing bucket name |
+| `S3_ACCESS_KEY` | Object Storage access key |
+| `S3_SECRET_KEY` | Object Storage secret key |
+| `S3_FORCE_PATH_STYLE` | `true` for path-style providers; use `false` only when the provider documents virtual-host addressing |
+
+NEO App supplies `PORT`; do not override it unless the platform form explicitly requires port `3000`. See [.env.example](./.env.example) for a copyable template.
+
+### 5. Approve and verify
+
+1. Approve the deployment and wait until the pod is running.
+2. Open the public URL plus `/healthz`. It should return `status: ok`.
+3. Open `/readyz`. It should return HTTP 200 with `database: postgres` and `storage: s3`.
+4. Open the dashboard and choose **Admin access**.
+5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
+6. Add one summary with a cover, refresh the page, and confirm it remains visible.
+7. Open another browser, load the public URL, and confirm the summary is visible there too.
+8. Import a JSON backup and confirm existing summaries remain present.
+
+Visitors can view summaries without the token. Adding, importing, uploading, and deleting require administrator access in production.
+
+## JSON import behavior
+
+- A new ID creates a new summary.
+- An existing ID updates that summary's text but preserves its current cover.
+- Summaries not included in the file remain in the database.
+- A record without an ID receives a new ID and is added.
+- Cover image binaries are not embedded in JSON exports; exported records keep their cover metadata, while actual files remain in Object Storage.
+
+## Migrating the old browser-only library
+
+If this domain contains data created by the previous `localStorage` version, the dashboard displays a migration notice. Select **Admin access** and enter `ADMIN_TOKEN`. The app merges those browser records into PostgreSQL once and records a local migration marker. Export the old data first if you want an extra backup.
 
 ## Run locally
 
-Requirements: Node.js 20 or newer.
+Node.js 20 or newer is required.
 
 ```powershell
 Set-Location 'demo-example\book-summary'
@@ -40,76 +114,30 @@ npm run check
 npm start
 ```
 
-Open <http://localhost:3000>. Verify:
-
-- <http://localhost:3000/healthz>
-- <http://localhost:3000/readyz>
-
-Docker alternative:
-
-```powershell
-docker build -t shelfnotes .
-docker run --rm -p 3000:3000 shelfnotes
-```
-
-## Deploy on NEO App — recommended Web Service
-
-Push this folder to its own repository, or use it as a directory in your existing monorepo. In NEO App, create a **Web Service** and enter:
-
-| NEO App field | Value |
-|---|---|
-| Service name | `shelfnotes` or another lowercase name |
-| Repository URL | Your Git repository URL |
-| Branch | `main` or your actual branch |
-| Git profile | Public repository, or connect the account for a private repository |
-| Root directory | `demo-example/book-summary` for this workspace monorepo; leave blank if this folder is the repository root |
-| Build method | Build File / Dockerfile |
-| Build file | `Dockerfile` |
-| Start command | Leave empty |
-| Container/service port | `3000` |
-| Health-check path | `/healthz` |
-| Readiness path | `/readyz` if the field is available |
-| Public access | Enabled |
-| Replicas | `1` is sufficient |
-
-No environment variables, database, queue, object storage, persistent volume, or custom domain are required. The server automatically uses NEO App's `PORT` value and listens on `0.0.0.0`.
-
-After approval and deployment:
-
-1. Wait until the deployment and pod show healthy or running.
-2. Open the generated public URL plus `/healthz`; it must return `{"status":"ok","service":"shelfnotes"}`.
-3. Open the public root URL.
-4. Add a summary and refresh the page; it should remain in that browser.
-5. Test search, a genre filter, theme selection, JSON export, and JSON import.
-6. Open the same site in a private window to confirm that browser-local data is intentionally separate.
-
-## Optional NEO Static Site deployment
-
-The browser application itself is static and has no API dependency. If NEO App's Static Site type accepts a directory containing an existing `index.html`, use:
-
-| Field | Value |
-|---|---|
-| Repository URL | Your Git repository URL |
-| Branch | `main` or your actual branch |
-| Root directory | `demo-example/book-summary/public` for this monorepo; `public` if this folder is the repository root |
-
-The Web Service deployment is recommended for testing because it provides explicit health endpoints and a known container port.
+Without `DATABASE_URL`, local development automatically uses temporary in-memory storage. It resets when the Node process restarts. Cover upload still requires S3 variables. To test PostgreSQL locally, copy `.env.example` values into your environment; the server intentionally does not load `.env` files by itself.
 
 ## Troubleshooting
 
-| Symptom | Check |
+| Symptom | What to check |
 |---|---|
-| Build cannot find `Dockerfile` | Confirm the root directory points to the folder containing `Dockerfile` |
-| Public URL returns `502` or `504` | Confirm service port `3000`, leave Start Command empty, and check `/healthz` in deployment logs |
-| Public URL returns `404` | Confirm public access is enabled and the generated domain is attached to this Web Service |
-| Books disappear in another browser | Expected: current storage is browser-local; export/import the JSON backup |
-| Books disappear after clearing browser data | Restore the latest exported JSON file |
-| Theme resets | Confirm browser storage is allowed for the public domain |
+| `/readyz` returns 503 | Confirm `DATABASE_URL` and every `S3_*` variable; verify network access and credentials |
+| Add/import/delete returns 401 | Choose **Admin access** and enter the exact `ADMIN_TOKEN` value |
+| Mutation returns `admin_token_not_configured` | Add `ADMIN_TOKEN` to the Web Service and redeploy |
+| Cover upload says `s3_not_configured` | Add all S3 variables and redeploy |
+| Cover upload is 403 | Confirm bucket permission for GetObject, PutObject, and DeleteObject |
+| Cover upload is 413 | Resize the file to 5 MiB or smaller |
+| Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
+| Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
+| Old browser notes are not migrated | Enter Admin access, verify the token, and keep the same public domain/browser storage |
 
 ## Repository layout
 
 ```text
 book-summary/
+├── lib/
+│   ├── database.mjs
+│   ├── storage.mjs
+│   └── validation.mjs
 ├── public/
 │   ├── app.js
 │   ├── icon.svg
@@ -117,20 +145,11 @@ book-summary/
 │   └── styles.css
 ├── scripts/validate.mjs
 ├── tests/server.test.mjs
+├── .env.example
 ├── Dockerfile
 ├── package.json
 ├── server.mjs
 └── README.md
 ```
 
-The original HTML, feature list, and palette document remain in the repository as design references. They are excluded from the runtime container by `.dockerignore`.
-
-## Verify before pushing
-
-```powershell
-npm test
-npm run check
-docker build -t shelfnotes .
-```
-
-Only the first two commands require Node.js. The final command requires Docker.
+The original HTML and content notes remain as design references and are excluded from the runtime container by `.dockerignore`.
