@@ -74,7 +74,7 @@ function mutationAuthorized(request) {
 }
 
 async function handleApi(request, response, url) {
-  if (["POST", "DELETE"].includes(request.method || "")) {
+  if (["POST", "PUT", "DELETE"].includes(request.method || "")) {
     const authorization = mutationAuthorized(request);
     if (!authorization.ok) { json(response, authorization.status, { error:authorization.error }); return true; }
   }
@@ -104,6 +104,12 @@ async function handleApi(request, response, url) {
     json(response, 200, { book:publicBook(updated) }); return true;
   }
   const bookMatch = url.pathname.match(/^\/api\/books\/([^/]+)$/);
+  if (request.method === "PUT" && bookMatch) {
+    const id = safeId(bookMatch[1]);
+    if (!await getBook(id)) { json(response, 404, { error:"book_not_found" }); return true; }
+    const book = validateBook({ ...(await readJson(request)), id });
+    json(response, 200, { book:publicBook(await saveBook(book)) }); return true;
+  }
   if (request.method === "DELETE" && bookMatch) {
     const id = safeId(bookMatch[1]);
     const existing = await getBook(id);

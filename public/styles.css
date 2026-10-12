@@ -57,3 +57,48 @@ footer { display:flex;align-items:center;justify-content:space-between;gap:20px;
 .form-dialog label small{font-size:9px;font-weight:500;letter-spacing:0;text-transform:none}
 .form-dialog input[type="file"]{padding:8px;font-size:10px}
 .admin-dialog{width:min(500px,calc(100% - 28px));padding:27px}.admin-dialog .dialog-close{color:var(--ink);border-color:var(--line);background:var(--surface-2)}.admin-dialog form,.admin-dialog label{display:grid;gap:9px}.admin-dialog label{color:var(--muted);font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}.admin-dialog .dialog-actions{margin:20px -27px -27px;padding:15px 27px}code{padding:2px 5px;border-radius:5px;color:var(--accent);background:var(--surface-2);font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+
+/* Editing and chapter notes */
+.mobile-label{display:none}
+.section-heading,.chapter-editor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.section-heading h3,.chapter-editor-heading h3{margin:0;font:700 18px Georgia,serif}
+.count-pill{flex:0 0 auto;padding:5px 9px;border-radius:999px;color:var(--accent);background:var(--surface-2);font-size:10px;font-weight:850}
+.chapter-breakdown{display:grid;gap:13px}
+.chapter-list{display:grid;gap:10px}
+.chapter-note{padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.chapter-note h4{margin:0 0 6px;font:700 16px Georgia,serif}
+.chapter-note>p{margin:0;color:var(--muted);white-space:pre-wrap}
+.chapter-note .takeaways{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);font-size:13px}
+.chapter-editor{display:grid;gap:13px;margin:3px 0;padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2)}
+.chapter-editor-heading>div>p:last-child{margin:4px 0 0;color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none}
+.chapter-fields{display:grid;gap:12px}
+.chapter-field{position:relative;display:grid;grid-template-columns:1fr 1.35fr;gap:11px;padding:15px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+.chapter-field .chapter-number{grid-column:1/-1;margin:0;color:var(--accent);font-size:10px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.chapter-field .chapter-summary{grid-column:1/-1}
+.chapter-remove{position:absolute;top:10px;right:10px;min-height:30px;padding:0 9px;color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));border-radius:8px;background:transparent;font-size:10px;font-weight:800}
+.chapter-empty{margin:0;padding:13px;border:1px dashed var(--line);border-radius:11px;color:var(--muted);text-align:center;font-size:12px}
+
+@media(max-width:500px){
+  body{font-size:14px}
+  .topbar{align-items:center;min-height:58px;padding:8px 10px}
+  .brand{gap:0}.brand>span:last-child{display:none}.brand-mark{width:38px;height:38px;border-radius:11px;font-size:20px}
+  .header-actions{gap:5px}.header-button{min-height:38px;padding:0 9px}.desktop-label{display:none}.mobile-label{display:inline}
+  .theme-control select{width:76px;min-height:38px;padding:0 7px;font-size:11px}
+  main{width:calc(100% - 20px);padding:14px 0 45px}
+  .hero{gap:20px;padding:16px 0 24px}.hero h1{font-size:37px}.hero-copy>p:last-child{margin-top:14px;font-size:14px}
+  .stats{border-radius:14px}.stats article{padding:11px 8px}.stats strong{font-size:20px}.stats span{margin-top:2px;font-size:7px;letter-spacing:.06em}
+  .toolbar{gap:8px;margin:18px 0 10px}.search input{min-height:40px}.library-actions{gap:6px}.library-actions .button{min-height:38px;padding:0 8px}
+  .filters{margin-right:-10px;padding-right:10px}.filter{min-height:31px}
+  .shelf-heading{margin:23px 0 11px}.shelf-heading h2{font-size:23px}
+  .books-grid{gap:10px}.book-card{border-radius:14px;box-shadow:0 8px 28px #0000000d}.book-card:hover{transform:none}
+  .book-open{min-height:150px;flex-direction:row}.book-cover{flex:0 0 112px;min-height:150px;padding:12px}.book-cover h3{font-size:18px}.book-cover p{font-size:9px}.book-cover .badge{padding:4px 6px;font-size:7px}
+  .book-note{min-width:0;padding:12px}.book-note>p{min-height:55px;font-size:11px;-webkit-line-clamp:3}.book-meta{display:grid;gap:3px;padding-top:9px}.book-meta span:last-child{font-size:9px}
+  footer{padding:20px 12px}
+  .dialog{width:100%;max-width:none;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}
+  .detail-cover{min-height:205px;padding:22px 18px}.detail-cover h2{margin-top:38px;font-size:33px}.detail-body{gap:17px;padding:18px}
+  .dialog-actions{position:sticky;bottom:0;z-index:4;gap:6px;padding:11px 14px}.dialog-actions .button{padding:0 10px}
+  .form-dialog,.admin-dialog{width:100%;padding:18px;border-radius:0}.form-dialog .dialog-actions,.admin-dialog .dialog-actions{margin:4px -18px -18px;padding:11px 18px}
+  .dialog-intro h2{padding-right:36px;font-size:25px}.dialog-intro>p:last-child{margin-bottom:16px}
+  .form-dialog form{gap:12px}.form-grid{gap:10px}.chapter-editor{padding:12px}.chapter-editor-heading{align-items:flex-start;flex-direction:column}.chapter-field{grid-template-columns:1fr;padding:13px}.chapter-field .chapter-summary,.chapter-field .chapter-number{grid-column:auto}.chapter-remove{top:8px;right:8px}
+  .chapter-note{padding:13px}.toast{right:10px;bottom:10px;max-width:calc(100vw - 20px)}
+}

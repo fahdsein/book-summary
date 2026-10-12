@@ -4,7 +4,7 @@ const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs"
 for (const file of required) await readFile(new URL(`../${file}`, import.meta.url));
 
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-for (const id of ["books-grid", "search", "genre-filters", "book-dialog", "book-form", "book-cover", "admin-dialog", "theme-select"]) {
+for (const id of ["books-grid", "search", "genre-filters", "book-dialog", "book-form", "book-cover", "chapter-fields", "add-chapter", "edit-book", "detail-chapters", "admin-dialog", "theme-select"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Missing required UI element: ${id}`);
 }
 

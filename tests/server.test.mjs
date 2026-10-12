@@ -23,6 +23,11 @@ const book = {
   color: "blue",
   bigIdea: "Treat software development as a deliberate craft.",
   takeaways: ["Automate repetition", "Keep learning"],
+  chapters: [{
+    title: "A Pragmatic Philosophy",
+    summary: "Build responsibility, adaptability, and ownership into everyday work.",
+    takeaways: ["Own the outcome", "Fix broken windows"]
+  }],
   quote: "Care about your craft.",
   audience: "Software developers"
 };
@@ -67,7 +72,29 @@ test("persists summaries and merges JSON imports without replacing existing book
   const listed = (await (await fetch(`${base}/api/books`)).json()).books;
   assert.equal(listed.length, 2);
   assert.equal(listed.find((item) => item.id === created.id).title, "The Pragmatic Programmer — Updated");
+  assert.equal(listed.find((item) => item.id === created.id).chapters[0].title, "A Pragmatic Philosophy");
   assert.ok(listed.some((item) => item.id === "second-book"));
+});
+
+test("lets an administrator edit an existing summary and its chapter breakdown", async () => {
+  const base = await baseUrl();
+  const before = (await (await fetch(`${base}/api/books`)).json()).books.find((item) => item.id === "second-book");
+  const response = await fetch(`${base}/api/books/second-book`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...before,
+      bigIdea: "Reliable systems are built by understanding data, distribution, and trade-offs.",
+      chapters: [
+        { title: "Reliable, Scalable, Maintainable", summary: "Defines the three core goals of data systems.", takeaways: ["Reliability is fault tolerance"] },
+        { title: "Data Models", summary: "Compares relational, document, and graph models.", takeaways: ["Choose a model for access patterns"] }
+      ]
+    })
+  });
+  assert.equal(response.status, 200);
+  const updated = (await response.json()).book;
+  assert.equal(updated.chapters.length, 2);
+  assert.match(updated.bigIdea, /Reliable systems/);
 });
 
 test("rejects unsupported cover formats before accessing object storage", async () => {

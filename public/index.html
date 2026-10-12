@@ -32,8 +32,8 @@
             <option value="seaside">Seaside Journal</option>
           </select>
         </label>
-        <button id="admin-access" class="button quiet" type="button">Admin access</button>
-        <button id="open-add" class="button primary" type="button"><span aria-hidden="true">＋</span> Add summary</button>
+        <button id="admin-access" class="button quiet header-button" type="button"><span class="desktop-label">Admin access</span><span class="mobile-label">Admin</span></button>
+        <button id="open-add" class="button primary header-button" type="button"><span aria-hidden="true">＋</span><span class="desktop-label">Add summary</span><span class="mobile-label">Add</span></button>
       </div>
     </header>
 
@@ -93,18 +93,23 @@
       <div class="detail-body">
         <section class="idea"><p class="eyebrow">The big idea</p><p id="detail-idea"></p></section>
         <section><h3>Key takeaways</h3><ul id="detail-takeaways" class="takeaways"></ul></section>
+        <section id="detail-chapters-section" class="chapter-breakdown" hidden>
+          <div class="section-heading"><div><p class="eyebrow">Deep notes</p><h3>Chapter-by-chapter breakdown</h3></div><span id="detail-chapter-count" class="count-pill"></span></div>
+          <div id="detail-chapters" class="chapter-list"></div>
+        </section>
         <blockquote><p id="detail-quote"></p><footer>Memorable line</footer></blockquote>
         <section class="audience"><p class="eyebrow">Who should read it</p><p id="detail-audience"></p></section>
       </div>
       <div class="dialog-actions">
         <button id="delete-book" class="button danger" type="button">Delete</button>
+        <button id="edit-book" class="button primary" type="button">Edit summary</button>
         <button class="button quiet" type="button" data-close="detail-dialog">Close</button>
       </div>
     </dialog>
 
     <dialog id="book-dialog" class="dialog form-dialog" aria-labelledby="form-title">
       <button class="dialog-close" type="button" data-close="book-dialog" aria-label="Close form">×</button>
-      <div class="dialog-intro"><p class="eyebrow">New reading note</p><h2 id="form-title">Add a book summary</h2><p>Capture the useful part while it is still fresh.</p></div>
+      <div class="dialog-intro"><p id="form-eyebrow" class="eyebrow">New reading note</p><h2 id="form-title">Add a book summary</h2><p id="form-description">Capture the useful part while it is still fresh.</p></div>
       <form id="book-form">
         <div class="form-grid">
           <label>Book title<input id="book-title" name="title" required maxlength="100" autocomplete="off"></label>
@@ -117,10 +122,17 @@
           </select></label>
           <label>Finished on<input id="book-date" name="finishedAt" type="date" required></label>
           <label>Cover color<select id="book-color" name="color"><option value="sage">Sage</option><option value="amber">Amber</option><option value="burgundy">Burgundy</option><option value="navy">Navy</option><option value="plum">Plum</option><option value="teal">Teal</option></select></label>
-          <label>Book cover image<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small>Optional · JPEG, PNG, or WebP · maximum 5 MiB</small></label>
+          <label>Book cover image<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small id="cover-help">Optional · JPEG, PNG, or WebP · maximum 5 MiB</small></label>
         </div>
         <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
         <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="1200" rows="4" placeholder="One takeaway per line"></textarea></label>
+        <section class="chapter-editor" aria-labelledby="chapter-editor-title">
+          <div class="chapter-editor-heading">
+            <div><p class="eyebrow">Optional deep notes</p><h3 id="chapter-editor-title">Chapter breakdown</h3><p>Add a summary and the core lessons for each useful chapter.</p></div>
+            <button id="add-chapter" class="button quiet" type="button">＋ Add chapter</button>
+          </div>
+          <div id="chapter-fields" class="chapter-fields"></div>
+        </section>
         <label>Memorable line<input id="book-quote" name="quote" maxlength="300" placeholder="Optional short quotation or your own note"></label>
         <label>Who should read it<input id="book-audience" name="audience" required maxlength="300"></label>
         <div class="dialog-actions"><button class="button quiet" type="button" data-close="book-dialog">Cancel</button><button class="button primary" type="submit">Save summary</button></div>

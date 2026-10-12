@@ -5,6 +5,9 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 ## What is included
 
 - Add, browse, search, filter, export, import, and delete summaries
+- Administrator editing for existing summaries, including adding or replacing a cover
+- Structured chapter-by-chapter summaries and core takeaways
+- Compact mobile cards, controls, and full-screen mobile edit/detail dialogs
 - Persistent PostgreSQL storage shared by browsers and devices
 - Merge/upsert JSON import with a 500-book limit per file
 - Cover upload to S3-compatible Object Storage, maximum 5 MiB
@@ -32,7 +35,7 @@ Copy their connection values into the Web Service environment variables describe
 3. Wait until it is ready.
 4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
 
-The service can create its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. For a controlled production release, let the first deployment create the table, then optionally change this value to `false`.
+The service can create and update its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. Existing deployments receive a backward-compatible `chapters` JSONB column; existing summaries and covers are preserved. For a controlled production release, let the first deployment after this update run with migration enabled, then optionally change this value to `false`.
 
 ### 2. Create Object Storage
 
@@ -85,8 +88,9 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 4. Open the dashboard and choose **Admin access**.
 5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
 6. Add one summary with a cover, refresh the page, and confirm it remains visible.
-7. Open another browser, load the public URL, and confirm the summary is visible there too.
-8. Import a JSON backup and confirm existing summaries remain present.
+7. Open that book, choose **Edit summary**, add a chapter breakdown, and optionally select a new cover. Confirm the update appears without creating a duplicate.
+8. Open another browser, load the public URL, and confirm the summary and chapter notes are visible there too.
+9. Import a JSON backup and confirm existing summaries remain present.
 
 Visitors can view summaries without the token. Adding, importing, uploading, and deleting require administrator access in production.
 
@@ -94,6 +98,7 @@ Visitors can view summaries without the token. Adding, importing, uploading, and
 
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current cover.
+- Chapter notes use `chapters: [{ "title": "...", "summary": "...", "takeaways": ["..."] }]`; older files without `chapters` remain valid.
 - Summaries not included in the file remain in the database.
 - A record without an ID receives a new ID and is added.
 - Cover image binaries are not embedded in JSON exports; exported records keep their cover metadata, while actual files remain in Object Storage.
@@ -128,6 +133,7 @@ Without `DATABASE_URL`, local development automatically uses temporary in-memory
 | Cover upload is 413 | Resize the file to 5 MiB or smaller |
 | Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
 | Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
+| Chapter section does not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `chapters` column is added |
 | Old browser notes are not migrated | Enter Admin access, verify the token, and keep the same public domain/browser storage |
 
 ## Repository layout
