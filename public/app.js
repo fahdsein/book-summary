@@ -1,181 +1,61 @@
-const THEME_KEY = "shelfnotes.theme.v1";
-const THEMES = new Set(["system", "vintage", "midnight", "matcha", "terracotta", "nordic", "lavender", "anthropologist", "autumn", "monolith", "seaside"]);
-const $ = (selector) => document.querySelector(selector);
-let books = [];
-let activeTag = "All";
+const THEME_KEY="shelfnotes.theme.v1";
+const THEMES=new Set(["system","vintage","midnight","matcha","terracotta","nordic","lavender","anthropologist","autumn","monolith","seaside"]);
+const BOOKS_PER_PAGE=12;
+const $=(selector)=>document.querySelector(selector);
+let books=[];
+let activeTag="All";
+let currentPage=1;
+let currentQuoteId="";
 
-async function api(path) {
-  const response = await fetch(path);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || payload.error || `Request failed with HTTP ${response.status}`);
-  return payload;
+async function api(path){const response=await fetch(path);const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload.message||payload.error||`Request failed with HTTP ${response.status}`);return payload;}
+function create(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
+function tagsFor(book){return Array.isArray(book.tags)&&book.tags.length?book.tags:[book.genre].filter(Boolean);}
+function chaptersFor(book){return Array.isArray(book.chapters)?book.chapters:[];}
+function coversFor(book){return Array.isArray(book.covers)?book.covers:[];}
+function ratingText(rating){return"★".repeat(rating)+"☆".repeat(5-rating);}
+function displayDate(value){const date=new Date(`${value}T12:00:00`);return Number.isNaN(date.valueOf())?value:new Intl.DateTimeFormat(undefined,{day:"numeric",month:"short",year:"numeric"}).format(date);}
+function tagList(tags,className="tag-list"){const list=create("div",className);list.append(...tags.map((tag)=>create("span","tag",tag)));return list;}
+
+function bookCard(book){
+  const article=create("article","book-card");const button=create("button","book-open");button.type="button";button.setAttribute("aria-label",`Open summary for ${book.title}`);button.addEventListener("click",()=>openDetails(book.id));
+  const primary=coversFor(book)[0];const cover=create("div",`book-cover cover--${book.color}${primary?" has-image":""}`);
+  if(primary){const image=create("img","cover-image");image.src=primary.url;image.alt=`${book.title}, ${primary.editionLabel} cover`;image.loading="lazy";image.addEventListener("error",()=>{image.remove();cover.classList.remove("has-image")});cover.append(image);}
+  cover.append(tagList(tagsFor(book).slice(0,3),"tag-list tag-list--cover"));
+  if(coversFor(book).length>1)cover.append(create("span","edition-count",`${coversFor(book).length} editions`));
+  const titleGroup=create("div","book-title-group");titleGroup.append(create("h3","",book.title),create("p","",`by ${book.author}`));cover.append(titleGroup);
+  const note=create("div","book-note");note.append(create("p","",book.bigIdea));const meta=create("div","book-meta");const stars=create("span","stars",ratingText(book.rating));stars.setAttribute("aria-label",`${book.rating} out of 5 stars`);const chapterCount=chaptersFor(book).length;meta.append(stars,create("span","",chapterCount?`${chapterCount} ch · ${displayDate(book.finishedAt)}`:displayDate(book.finishedAt)));note.append(meta);button.append(cover,note);article.append(button);return article;
 }
 
-function create(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
+function visibleBooks(){const query=$("#search").value.trim().toLocaleLowerCase();return books.filter((book)=>{const tags=tagsFor(book);const matchesTag=activeTag==="All"||tags.some((tag)=>tag.toLocaleLowerCase()===activeTag.toLocaleLowerCase());const chapterText=chaptersFor(book).flatMap((chapter)=>[chapter.title,chapter.summary,...(chapter.takeaways||[])]);const searchable=[book.title,book.author,...tags,book.bigIdea,book.audience,...(book.takeaways||[]),...chapterText].join(" ").toLocaleLowerCase();return matchesTag&&(!query||searchable.includes(query));});}
+function renderFilters(){const tags=["All",...new Set(books.flatMap(tagsFor).sort((a,b)=>a.localeCompare(b)))];if(!tags.includes(activeTag))activeTag="All";$("#tag-filters").replaceChildren(...tags.map((tag)=>{const button=create("button",`filter${tag===activeTag?" active":""}`,tag==="All"?"All books":tag);button.type="button";button.setAttribute("aria-pressed",String(tag===activeTag));button.addEventListener("click",()=>{activeTag=tag;currentPage=1;render()});return button;}));}
+function readingStreak(){const dates=[...new Set(books.map((book)=>book.finishedAt))].sort().reverse();if(!dates.length)return 0;let count=1;let previous=new Date(`${dates[0]}T12:00:00`);for(const value of dates.slice(1)){const current=new Date(`${value}T12:00:00`);if(Math.round((previous-current)/86400000)!==1)break;count+=1;previous=current;}return count;}
+
+function renderPagination(total){
+  const pages=Math.ceil(total/BOOKS_PER_PAGE);const nav=$("#pagination");nav.hidden=pages<=1;if(pages<=1){nav.replaceChildren();return;}currentPage=Math.min(Math.max(currentPage,1),pages);const nodes=[];
+  const control=(label,page,disabled=false,current=false)=>{const button=create("button",`page-button${current?" active":""}`,label);button.type="button";button.disabled=disabled;if(current)button.setAttribute("aria-current","page");button.addEventListener("click",()=>{currentPage=page;render();$(".shelf-heading").scrollIntoView({behavior:"smooth",block:"start"})});return button;};
+  nodes.push(control("Previous",currentPage-1,currentPage===1));
+  const candidates=[1,currentPage-1,currentPage,currentPage+1,pages].filter((value,index,array)=>value>=1&&value<=pages&&array.indexOf(value)===index).sort((a,b)=>a-b);
+  let previous=0;for(const page of candidates){if(previous&&page-previous>1)nodes.push(create("span","page-gap","…"));nodes.push(control(String(page),page,false,page===currentPage));previous=page;}
+  nodes.push(control("Next",currentPage+1,currentPage===pages));nav.replaceChildren(...nodes);
 }
 
-function tagsFor(book) { return Array.isArray(book.tags) && book.tags.length ? book.tags : [book.genre].filter(Boolean); }
-function chaptersFor(book) { return Array.isArray(book.chapters) ? book.chapters : []; }
-function ratingText(rating) { return "★".repeat(rating) + "☆".repeat(5 - rating); }
-
-function displayDate(value) {
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(undefined, { day:"numeric", month:"short", year:"numeric" }).format(date);
+function render(){
+  renderFilters();$("#stat-books").textContent=books.length;$("#stat-streak").textContent=readingStreak();const counts=new Map();books.flatMap(tagsFor).forEach((tag)=>counts.set(tag,(counts.get(tag)||0)+1));$("#stat-tag").textContent=[...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0]||"—";
+  const filtered=visibleBooks();const pages=Math.max(1,Math.ceil(filtered.length/BOOKS_PER_PAGE));if(currentPage>pages)currentPage=pages;const start=(currentPage-1)*BOOKS_PER_PAGE;const pageBooks=filtered.slice(start,start+BOOKS_PER_PAGE);$("#books-grid").replaceChildren(...pageBooks.map(bookCard));$("#books-grid").hidden=filtered.length===0;$("#empty-state").hidden=filtered.length!==0;const first=filtered.length?start+1:0;const last=Math.min(start+BOOKS_PER_PAGE,filtered.length);$("#result-count").textContent=`${first}–${last} of ${filtered.length} matching · ${books.length} total`;renderPagination(filtered.length);
 }
 
-function tagList(tags, className = "tag-list") {
-  const list = create("div", className);
-  list.append(...tags.map((tag) => create("span", "tag", tag)));
-  return list;
+function chapterNote(chapter,index){const article=create("article","chapter-note");article.append(create("h4","",`Chapter ${index+1} · ${chapter.title}`),create("p","",chapter.summary));if(chapter.takeaways?.length){const list=create("ul","takeaways");list.append(...chapter.takeaways.map((value)=>create("li","",value)));article.append(list);}return article;}
+function applyDetailCover(book,cover,button){const target=$("#detail-cover");target.className=`detail-cover cover--${book.color}${cover?" has-image":""}`;target.style.backgroundImage=cover?`url("${cover.url}")`:"";$("#detail-editions").querySelectorAll("button").forEach((item)=>item.classList.toggle("active",item===button));}
+function openDetails(id){
+  const book=books.find((item)=>item.id===id);if(!book)return;const covers=coversFor(book);$("#detail-tags").replaceChildren(...tagsFor(book).map((tag)=>create("span","tag",tag)));$("#detail-date").textContent=`Finished ${displayDate(book.finishedAt)}`;$("#detail-title").textContent=book.title;$("#detail-author").textContent=`by ${book.author}`;$("#detail-rating").textContent=ratingText(book.rating);$("#detail-rating").setAttribute("aria-label",`${book.rating} out of 5 stars`);$("#detail-idea").textContent=book.bigIdea;$("#detail-takeaways").replaceChildren(...(book.takeaways||[]).map((value)=>create("li","",value)));
+  const chapters=chaptersFor(book);$("#detail-chapters-section").hidden=chapters.length===0;$("#detail-chapter-count").textContent=`${chapters.length} ${chapters.length===1?"chapter":"chapters"}`;$("#detail-chapters").replaceChildren(...chapters.map(chapterNote));$("#detail-quote").textContent=book.quote?`“${book.quote}”`:"No memorable line was recorded.";$("#detail-audience").textContent=book.audience;
+  const editionSection=$("#detail-editions-section"),editionList=$("#detail-editions");editionSection.hidden=covers.length<2;$("#detail-edition-count").textContent=`${covers.length} editions`;const buttons=covers.map((cover,index)=>{const button=create("button",`edition-thumbnail${index===0?" active":""}`);button.type="button";button.setAttribute("aria-label",`Show ${cover.editionLabel} cover`);const image=create("img");image.src=cover.url;image.alt="";button.append(image,create("span","",cover.editionLabel));button.addEventListener("click",()=>applyDetailCover(book,cover,button));return button;});editionList.replaceChildren(...buttons);applyDetailCover(book,covers[0],buttons[0]);$("#detail-dialog").showModal();
 }
 
-function bookCard(book) {
-  const article = create("article", "book-card");
-  const button = create("button", "book-open");
-  button.type = "button";
-  button.setAttribute("aria-label", `Open summary for ${book.title}`);
-  button.addEventListener("click", () => openDetails(book.id));
-  const cover = create("div", `book-cover cover--${book.color}${book.coverUrl ? " has-image" : ""}`);
-  if (book.coverUrl) {
-    const image = create("img", "cover-image");
-    image.src = book.coverUrl;
-    image.alt = "";
-    image.loading = "lazy";
-    image.addEventListener("error", () => { image.remove(); cover.classList.remove("has-image"); });
-    cover.append(image);
-  }
-  cover.append(tagList(tagsFor(book).slice(0, 3), "tag-list tag-list--cover"));
-  const titleGroup = create("div", "book-title-group");
-  titleGroup.append(create("h3", "", book.title), create("p", "", `by ${book.author}`));
-  cover.append(titleGroup);
-  const note = create("div", "book-note");
-  note.append(create("p", "", book.bigIdea));
-  const meta = create("div", "book-meta");
-  const stars = create("span", "stars", ratingText(book.rating));
-  stars.setAttribute("aria-label", `${book.rating} out of 5 stars`);
-  const chapterCount = chaptersFor(book).length;
-  meta.append(stars, create("span", "", chapterCount ? `${chapterCount} ch · ${displayDate(book.finishedAt)}` : displayDate(book.finishedAt)));
-  note.append(meta);
-  button.append(cover, note);
-  article.append(button);
-  return article;
-}
+function chooseQuote(){const quoted=books.filter((book)=>book.quote);const options=quoted.length>1?quoted.filter((book)=>book.id!==currentQuoteId):quoted;const card=$("#quote-card");card.hidden=!options.length;if(!options.length)return;const random=new Uint32Array(1);crypto.getRandomValues(random);const book=options[random[0]%options.length];currentQuoteId=book.id;$("#random-quote").textContent=`“${book.quote}”`;$("#random-quote-source").textContent=`${book.title} · ${book.author}`;}
+function updateClock(){const now=new Date();$("#local-time").textContent=new Intl.DateTimeFormat(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(now);$("#local-date").textContent=new Intl.DateTimeFormat(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(now);$("#local-zone").textContent=Intl.DateTimeFormat().resolvedOptions().timeZone||"Local timezone";}
+function applyTheme(selected){const theme=THEMES.has(selected)?selected:"system";const resolved=theme==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"midnight":"matcha"):theme;document.documentElement.dataset.theme=resolved;$("#theme-select").value=theme;document.querySelector('meta[name="theme-color"]').content=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();}
+async function load(){try{const[library,meta]=await Promise.all([api("/api/books"),api("/api/meta")]);books=library.books||[];$("#app-version").textContent=`v${meta.version}${meta.revision?` · ${meta.revision.slice(0,8)}`:""}`;}catch(error){$("#service-notice").textContent=`The library is temporarily unavailable: ${error.message}`;$("#service-notice").hidden=false;}render();chooseQuote();}
 
-function visibleBooks() {
-  const query = $("#search").value.trim().toLocaleLowerCase();
-  return books.filter((book) => {
-    const tags = tagsFor(book);
-    const matchesTag = activeTag === "All" || tags.some((tag) => tag.toLocaleLowerCase() === activeTag.toLocaleLowerCase());
-    const chapterText = chaptersFor(book).flatMap((chapter) => [chapter.title, chapter.summary, ...(chapter.takeaways || [])]);
-    const searchable = [book.title, book.author, ...tags, book.bigIdea, book.audience, ...(book.takeaways || []), ...chapterText].join(" ").toLocaleLowerCase();
-    return matchesTag && (!query || searchable.includes(query));
-  });
-}
-
-function renderFilters() {
-  const tags = ["All", ...new Set(books.flatMap(tagsFor).sort((a, b) => a.localeCompare(b)))];
-  if (!tags.includes(activeTag)) activeTag = "All";
-  $("#tag-filters").replaceChildren(...tags.map((tag) => {
-    const button = create("button", `filter${tag === activeTag ? " active" : ""}`, tag === "All" ? "All books" : tag);
-    button.type = "button";
-    button.setAttribute("aria-pressed", String(tag === activeTag));
-    button.addEventListener("click", () => { activeTag = tag; render(); });
-    return button;
-  }));
-}
-
-function readingStreak() {
-  const dates = [...new Set(books.map((book) => book.finishedAt))].sort().reverse();
-  if (!dates.length) return 0;
-  let count = 1;
-  let previous = new Date(`${dates[0]}T12:00:00`);
-  for (const value of dates.slice(1)) {
-    const current = new Date(`${value}T12:00:00`);
-    if (Math.round((previous - current) / 86400000) !== 1) break;
-    count += 1;
-    previous = current;
-  }
-  return count;
-}
-
-function render() {
-  renderFilters();
-  $("#stat-books").textContent = books.length;
-  $("#stat-streak").textContent = readingStreak();
-  const counts = new Map();
-  books.flatMap(tagsFor).forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1));
-  $("#stat-tag").textContent = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "—";
-  const filtered = visibleBooks();
-  $("#books-grid").replaceChildren(...filtered.map(bookCard));
-  $("#books-grid").hidden = filtered.length === 0;
-  $("#empty-state").hidden = filtered.length !== 0;
-  $("#result-count").textContent = `${filtered.length} of ${books.length} ${books.length === 1 ? "book" : "books"}`;
-}
-
-function chapterNote(chapter, index) {
-  const article = create("article", "chapter-note");
-  article.append(create("h4", "", `Chapter ${index + 1} · ${chapter.title}`), create("p", "", chapter.summary));
-  if (chapter.takeaways?.length) {
-    const list = create("ul", "takeaways");
-    list.append(...chapter.takeaways.map((value) => create("li", "", value)));
-    article.append(list);
-  }
-  return article;
-}
-
-function openDetails(id) {
-  const book = books.find((item) => item.id === id);
-  if (!book) return;
-  const cover = $("#detail-cover");
-  cover.className = `detail-cover cover--${book.color}${book.coverUrl ? " has-image" : ""}`;
-  cover.style.backgroundImage = book.coverUrl ? `url("${book.coverUrl}")` : "";
-  $("#detail-tags").replaceChildren(...tagsFor(book).map((tag) => create("span", "tag", tag)));
-  $("#detail-date").textContent = `Finished ${displayDate(book.finishedAt)}`;
-  $("#detail-title").textContent = book.title;
-  $("#detail-author").textContent = `by ${book.author}`;
-  $("#detail-rating").textContent = ratingText(book.rating);
-  $("#detail-rating").setAttribute("aria-label", `${book.rating} out of 5 stars`);
-  $("#detail-idea").textContent = book.bigIdea;
-  $("#detail-takeaways").replaceChildren(...(book.takeaways || []).map((value) => create("li", "", value)));
-  const chapters = chaptersFor(book);
-  $("#detail-chapters-section").hidden = chapters.length === 0;
-  $("#detail-chapter-count").textContent = `${chapters.length} ${chapters.length === 1 ? "chapter" : "chapters"}`;
-  $("#detail-chapters").replaceChildren(...chapters.map(chapterNote));
-  $("#detail-quote").textContent = book.quote ? `“${book.quote}”` : "No memorable line was recorded.";
-  $("#detail-audience").textContent = book.audience;
-  $("#detail-dialog").showModal();
-}
-
-function applyTheme(selected) {
-  const theme = THEMES.has(selected) ? selected : "system";
-  const resolved = theme === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "midnight" : "matcha") : theme;
-  document.documentElement.dataset.theme = resolved;
-  $("#theme-select").value = theme;
-  document.querySelector('meta[name="theme-color"]').content = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-}
-
-async function load() {
-  try {
-    const [library, meta] = await Promise.all([api("/api/books"), api("/api/meta")]);
-    books = library.books || [];
-    $("#app-version").textContent = `v${meta.version}${meta.revision ? ` · ${meta.revision.slice(0, 8)}` : ""}`;
-  } catch (error) {
-    $("#service-notice").textContent = `The library is temporarily unavailable: ${error.message}`;
-    $("#service-notice").hidden = false;
-  }
-  render();
-}
-
-$("#search").addEventListener("input", render);
-$("#theme-select").addEventListener("change", (event) => { localStorage.setItem(THEME_KEY, event.target.value); applyTheme(event.target.value); });
-document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => document.getElementById(button.dataset.close)?.close()));
-document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if ((localStorage.getItem(THEME_KEY) || "system") === "system") applyTheme("system"); });
-
-applyTheme(localStorage.getItem(THEME_KEY) || "system");
-render();
-load();
+$("#search").addEventListener("input",()=>{currentPage=1;render()});$("#another-quote").addEventListener("click",chooseQuote);$("#theme-select").addEventListener("change",(event)=>{localStorage.setItem(THEME_KEY,event.target.value);applyTheme(event.target.value)});document.querySelectorAll("[data-close]").forEach((button)=>button.addEventListener("click",()=>document.getElementById(button.dataset.close)?.close()));document.querySelectorAll("dialog").forEach((dialog)=>dialog.addEventListener("click",(event)=>{if(event.target===dialog)dialog.close()}));matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if((localStorage.getItem(THEME_KEY)||"system")==="system")applyTheme("system")});
+applyTheme(localStorage.getItem(THEME_KEY)||"system");updateClock();setInterval(updateClock,1000);render();load();

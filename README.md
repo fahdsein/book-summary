@@ -1,12 +1,14 @@
 # ShelfNotes Book Summary
 
-Current release: **v3.0.0**
+Current release: **v4.0.0**
 
-ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private JPEG, PNG, or WebP cover files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
+ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private edition-cover images and optional PDF files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
 ## What is included
 
 - Public, read-only library with search and multi-tag filtering
+- Pagination at **12 books per page**, chosen to divide evenly across four-, three-, two-, and one-column layouts
+- A visitor-local clock with date and IANA timezone plus a randomized memorable line from stored books
 - Separate `/admin.html` workspace for all book CRUD, full-library import/export, and cover management
 - Up to 12 tags per book; the first tag remains the backward-compatible primary `genre`
 - Structured chapter-by-chapter summaries and core takeaways
@@ -14,7 +16,10 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 - Compact mobile cards, controls, and full-screen mobile edit/detail dialogs
 - Persistent PostgreSQL storage shared by browsers and devices
 - Merge/upsert JSON import with a 500-book limit per file
-- Cover upload to S3-compatible Object Storage, maximum 5 MiB
+- Up to 8 labeled edition covers per book, with administrator controls for the primary cover and deletion
+- Cover upload to S3-compatible Object Storage, maximum 5 MiB per image
+- One optional administrator-only PDF source per book: either an external HTTP(S) URL or a private S3 PDF upload
+- Private PDF uploads are validated by content signature, limited to 25 MiB by default, and never exposed by the public books API
 - Same-origin cover delivery, so the S3 bucket can remain private
 - Production write protection with `ADMIN_TOKEN`
 - Visible application version and optional deployment revision on both public and admin pages
@@ -27,7 +32,7 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 Create these two NEO App resources in the same project:
 
 1. A **NEO DB / PostgreSQL** database.
-2. An **S3-compatible Object Storage** bucket for book covers.
+2. An **S3-compatible Object Storage** bucket for edition covers and optional private PDFs.
 
 Copy their connection values into the Web Service environment variables described below. Do not commit real passwords, access keys, or `ADMIN_TOKEN` to Git.
 
@@ -40,13 +45,13 @@ Copy their connection values into the Web Service environment variables describe
 3. Wait until it is ready.
 4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
 
-The service can create and update its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. Existing deployments receive backward-compatible `chapters` and `tags` JSONB columns. Existing `genre` values are copied into `tags`, and existing summaries and covers are preserved. For a controlled production release, let the first deployment after this update run with migration enabled, then optionally change this value to `false`.
+The service can update its schema automatically when `DATABASE_AUTO_MIGRATE=true`. Version 4 adds PDF metadata columns and a relational `book_covers` table. Each previous single cover is copied into the new table as `Default edition` in primary position without deleting its S3 object. Existing summaries, tags, chapters, and media remain available. Let the first deployment after this update run with migration enabled; after verifying the migration, you may optionally change it to `false`.
 
 ### 2. Create Object Storage
 
 1. Create or select an S3-compatible bucket.
 2. Keep the bucket private; public-read access is not required.
-3. Create credentials permitted to read, write, and delete objects in that bucket.
+3. Create credentials permitted to read, write, and delete objects in that bucket. Restrict access to this application's prefixes when supported.
 4. Record the endpoint, region, bucket name, access key, and secret key.
 
 ### 3. Create the Web Service
@@ -84,6 +89,7 @@ Attach the NEO DB if the form provides an attachment control. The important resu
 | `S3_ACCESS_KEY` | Object Storage access key |
 | `S3_SECRET_KEY` | Object Storage secret key |
 | `S3_FORCE_PATH_STYLE` | `true` for path-style providers; use `false` only when the provider documents virtual-host addressing |
+| `MAX_PDF_BYTES` | Optional PDF limit in bytes; defaults to `26214400` (25 MiB) |
 
 NEO App supplies `PORT`; do not override it unless the platform form explicitly requires port `3000`. See [.env.example](./.env.example) for a copyable template.
 
@@ -94,22 +100,25 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 3. Open `/readyz`. It should return HTTP 200 with `database: postgres` and `storage: s3`.
 4. Open `/admin.html` from the **Manage library** link.
 5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
-6. Add one summary with multiple comma-separated tags and a cover, refresh the page, and confirm it remains visible.
-7. Edit that book, add chapters manually or choose **Import chapter JSON**, and optionally select a new cover. Confirm the update appears without creating a duplicate.
-8. Open another browser, load the public URL, and confirm the summary and chapter notes are visible there too.
-9. Import a JSON backup and confirm existing summaries remain present.
+6. Add at least 13 summaries and confirm the public shelf shows 12 on page one and the remainder on page two.
+7. Add two edition covers to one book, open **Media**, set the second one as primary, and confirm the public card and detail gallery update.
+8. Add either a PDF URL or PDF file. Confirm **Media** can open it while `/api/books` contains no PDF metadata.
+9. Edit that book, add chapters manually or choose **Import chapter JSON**, and confirm the update appears without creating a duplicate.
+10. Confirm the public page shows local time and a memorable line; use the refresh control to select another quote.
+11. Import a JSON backup and confirm existing summaries and media remain present.
 
 Visitors can view and filter summaries without the token. All content management is on `/admin.html`; adding, editing, importing, uploading, and deleting require administrator access in production.
 
 ## JSON import behavior
 
 - A new ID creates a new summary.
-- An existing ID updates that summary's text but preserves its current cover.
+- An existing ID updates that summary's text but preserves its current edition covers and uploaded PDF.
 - `tags` is an array of up to 12 strings. Older files containing only `genre` remain valid and become a one-tag book.
 - Chapter notes use `chapters: [{ "title": "...", "summary": "...", "takeaways": ["..."] }]`; older files without `chapters` remain valid.
 - Summaries not included in the file remain in the database.
 - A record without an ID receives a new ID and is added.
-- Cover image binaries are not embedded in JSON exports; exported records keep their cover metadata, while actual files remain in Object Storage.
+- Cover and PDF binaries are not embedded in JSON exports. Edition covers and uploaded PDFs remain in Object Storage.
+- An external PDF URL may be imported for a newly created record. A merge into an existing ID preserves that record's current PDF source to avoid silently replacing private media.
 
 ## Import chapter summaries while editing
 
@@ -128,7 +137,7 @@ Use [examples/chapters.example.json](./examples/chapters.example.json) as a begi
 - `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
 - `GET /api/meta` returns the public version metadata.
 - `GET /healthz` includes the version to make runtime verification easier.
-- Increase the package version whenever a deployable behavior or schema changes. This repository uses `3.0.0` for the multi-tag model and separate admin application.
+- Increase the package version whenever a deployable behavior or schema changes. This repository uses `4.0.0` for pagination, reading-moment UI, edition covers, and administrator-only PDFs.
 
 ## Migrating the old browser-only library
 
@@ -158,6 +167,10 @@ Without `DATABASE_URL`, local development automatically uses temporary in-memory
 | Cover upload says `s3_not_configured` | Add all S3 variables and redeploy |
 | Cover upload is 403 | Confirm bucket permission for GetObject, PutObject, and DeleteObject |
 | Cover upload is 413 | Resize the file to 5 MiB or smaller |
+| PDF upload is 413 | Reduce the PDF below `MAX_PDF_BYTES`, or raise the limit deliberately and verify platform request limits |
+| PDF upload is 415 | Upload a genuine PDF beginning with the `%PDF-` signature rather than a renamed file |
+| PDF is visible to public visitors | Do not place its URL in summary text; PDF metadata belongs only in the admin PDF fields and `/api/admin/books` |
+| Older cover is missing after upgrade | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the previous `cover_key` is copied into `book_covers` |
 | Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
 | Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
 | Chapter section does not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `chapters` column is added |

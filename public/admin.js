@@ -1,336 +1,70 @@
-const ADMIN_SESSION_KEY = "shelfnotes.admin-token";
-const LEGACY_STORAGE_KEY = "shelfnotes.books.v1";
-const MIGRATION_KEY = "shelfnotes.database-migrated.v2";
-const $ = (selector) => document.querySelector(selector);
-let books = [];
-let editingBookId = null;
+const ADMIN_SESSION_KEY="shelfnotes.admin-token";
+const LEGACY_STORAGE_KEY="shelfnotes.books.v1";
+const MIGRATION_KEY="shelfnotes.database-migrated.v2";
+const MAX_COVERS=8;
+const MAX_PDF_BYTES=25*1024*1024;
+const $=(selector)=>document.querySelector(selector);
+let books=[];
+let editingBookId=null;
+let mediaBookId=null;
 let toastTimer;
 
-function create(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
+function create(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
+function tagsFor(book){return Array.isArray(book.tags)&&book.tags.length?book.tags:[book.genre].filter(Boolean);}
+function chaptersFor(book){return Array.isArray(book.chapters)?book.chapters:[];}
+function coversFor(book){return Array.isArray(book.covers)?book.covers:[];}
+async function api(path,options={}){const headers=new Headers(options.headers||{});const token=sessionStorage.getItem(ADMIN_SESSION_KEY);if(token)headers.set("Authorization",`Bearer ${token}`);const response=await fetch(path,{...options,headers});const text=await response.text();let payload={};try{payload=JSON.parse(text||"{}");}catch{payload={};}if(!response.ok)throw new Error(payload.message||payload.error||`Request failed with HTTP ${response.status}`);return payload;}
+function showToast(message){const toast=$("#toast");toast.textContent=message;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),4200);}
+function setNotice(message=""){$("#admin-notice").textContent=message;$("#admin-notice").hidden=!message;}
+function dateToday(){return new Date().toISOString().slice(0,10);}
+function displayDate(value){const date=new Date(`${value}T12:00:00`);return Number.isNaN(date.valueOf())?value:new Intl.DateTimeFormat(undefined,{day:"numeric",month:"short",year:"numeric"}).format(date);}
+
+function adminBookCard(book){
+  const article=create("article","admin-book-row");const primary=coversFor(book)[0];const cover=create("div",`admin-book-cover cover--${book.color}${primary?" has-image":""}`);
+  if(primary){const image=create("img","cover-image");image.src=primary.url;image.alt=`Cover of ${book.title}`;image.loading="lazy";image.addEventListener("error",()=>image.remove());cover.append(image);}else cover.append(create("span","",book.title.slice(0,1).toLocaleUpperCase()));
+  const content=create("div","admin-book-content"),heading=create("div","admin-book-heading"),title=create("div");title.append(create("h3","",book.title),create("p","",`by ${book.author}`));heading.append(title,create("span","admin-book-date",displayDate(book.finishedAt)));const tags=create("div","tag-list");tags.append(...tagsFor(book).map((tag)=>create("span","tag tag--plain",tag)));const pdfStatus=book.pdf?book.pdf.type==="upload"?"private PDF stored":"private PDF URL":"no PDF";const detail=create("p","admin-book-detail",`${chaptersFor(book).length} chapters · ${book.takeaways?.length||0} takeaways · ${coversFor(book).length} edition covers · ${pdfStatus}`);content.append(heading,tags,detail);
+  const actions=create("div","admin-row-actions");for(const[label,handler,className]of[["Media",()=>openMedia(book),"button quiet"],["Edit",()=>openBookForm(book),"button quiet"],["Delete",()=>deleteBook(book),"button danger"]]){const button=create("button",className,label);button.type="button";button.addEventListener("click",handler);actions.append(button);}article.append(cover,content,actions);return article;
+}
+function render(){const query=$("#admin-search").value.trim().toLocaleLowerCase();const filtered=books.filter((book)=>[book.title,book.author,...tagsFor(book)].join(" ").toLocaleLowerCase().includes(query));$("#admin-books").replaceChildren(...filtered.map(adminBookCard));$("#admin-books").hidden=filtered.length===0;$("#admin-empty").hidden=filtered.length!==0;$("#admin-count").textContent=`${filtered.length} of ${books.length} ${books.length===1?"record":"records"}`;}
+async function loadBooks(){const result=await api("/api/admin/books");books=result.books||[];render();}
+async function migrateLegacyBooks(){if(localStorage.getItem(MIGRATION_KEY))return;let legacy=[];try{legacy=JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY)||"[]");}catch{legacy=[];}if(!Array.isArray(legacy)||!legacy.length)return;const result=await api("/api/books/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({books:legacy})});books=result.books||books;localStorage.setItem(MIGRATION_KEY,new Date().toISOString());showToast(`Migrated ${result.imported} browser-only summaries into NEO DB.`);}
+async function unlock(token,announce=true){sessionStorage.setItem(ADMIN_SESSION_KEY,token);try{await api("/api/admin/status");await loadBooks();setNotice("");try{await migrateLegacyBooks();}catch(error){setNotice(`Admin access is active, but browser-note migration failed: ${error.message}`);}render();$("#auth-panel").hidden=true;$("#admin-workspace").hidden=false;$("#sign-out").hidden=false;if(announce)showToast("Administrator access unlocked for this browser tab.");return true;}catch(error){sessionStorage.removeItem(ADMIN_SESSION_KEY);$("#auth-panel").hidden=false;$("#admin-workspace").hidden=true;$("#sign-out").hidden=true;setNotice(`Administrator access failed: ${error.message}`);return false;}}
+function lockAdmin(){sessionStorage.removeItem(ADMIN_SESSION_KEY);books=[];render();$("#admin-token").value="";$("#auth-panel").hidden=false;$("#admin-workspace").hidden=true;$("#sign-out").hidden=true;setNotice("");showToast("Administrator access locked.");}
+
+function refreshChapterNumbers(){const fields=[...document.querySelectorAll(".chapter-field")];fields.forEach((field,index)=>{field.querySelector(".chapter-number").textContent=`Chapter ${index+1}`});if(!fields.length)$("#chapter-fields").replaceChildren(create("p","chapter-empty","No chapter notes yet. Add a chapter or import chapter JSON."));}
+function addChapterField(chapter={}){const container=$("#chapter-fields");container.querySelector(".chapter-empty")?.remove();const field=create("article","chapter-field"),number=create("p","chapter-number"),remove=create("button","chapter-remove","Remove");remove.type="button";remove.setAttribute("aria-label","Remove chapter note");remove.addEventListener("click",()=>{field.remove();refreshChapterNumbers()});const titleLabel=create("label"),titleInput=Object.assign(create("input"),{required:true,maxLength:160,value:String(chapter.title||""),autocomplete:"off"});titleInput.className="chapter-title";titleLabel.append("Chapter title",titleInput);const takeawayLabel=create("label"),takeawayInput=Object.assign(create("textarea"),{maxLength:3600,rows:3,value:Array.isArray(chapter.takeaways)?chapter.takeaways.join("\n"):String(chapter.takeaways||""),placeholder:"One core takeaway per line"});takeawayInput.className="chapter-takeaways";takeawayLabel.append("Core takeaways",takeawayInput);const summaryLabel=create("label","chapter-summary"),summaryInput=Object.assign(create("textarea"),{required:true,maxLength:4000,rows:4,value:String(chapter.summary||""),placeholder:"What happens in this chapter, and why does it matter?"});summaryInput.className="chapter-summary-input";summaryLabel.append("Chapter summary",summaryInput);field.append(number,remove,titleLabel,takeawayLabel,summaryLabel);container.append(field);refreshChapterNumbers();}
+function renderChapterFields(chapters=[]){$("#chapter-fields").replaceChildren();chapters.forEach(addChapterField);refreshChapterNumbers();}
+function readChapterFields(){return[...document.querySelectorAll(".chapter-field")].map((field)=>({title:field.querySelector(".chapter-title").value.trim(),summary:field.querySelector(".chapter-summary-input").value.trim(),takeaways:field.querySelector(".chapter-takeaways").value.split(/\r?\n/).map((item)=>item.trim()).filter(Boolean)}));}
+
+function openBookForm(book=null){
+  editingBookId=book?.id||null;$("#book-form").reset();$("#book-date").value=book?.finishedAt||dateToday();$("#form-eyebrow").textContent=book?"Edit library record":"New library record";$("#form-title").textContent=book?"Edit book summary":"Add a book summary";$("#form-description").textContent=book?"Update content or optionally append another edition cover or replace the private PDF source.":"Create a searchable summary, then optionally add edition artwork and a private PDF.";$("#cover-help").textContent=`Optional · ${coversFor(book||{}).length}/${MAX_COVERS} edition covers currently stored`;$("#pdf-help").textContent=book?.pdf?`${book.pdf.type==="upload"?book.pdf.name:"External PDF URL"} is currently stored. A new file replaces it.`:"Optional · stored privately in S3 · maximum 25 MiB";$("#book-form").querySelector('[type="submit"]').textContent=book?"Update summary":"Save summary";
+  if(book){$("#book-title").value=book.title;$("#book-author").value=book.author;$("#book-tags").value=tagsFor(book).join(", ");$("#book-rating").value=String(book.rating);$("#book-color").value=book.color;$("#book-idea").value=book.bigIdea;$("#book-takeaways").value=(book.takeaways||[]).join("\n");$("#book-quote").value=book.quote||"";$("#book-audience").value=book.audience;$("#book-pdf-url").value=book.pdf?.type==="url"?book.pdf.url:"";}
+  renderChapterFields(book?chaptersFor(book):[]);$("#book-dialog").showModal();$("#book-title").focus();
+}
+async function importChapterFile(file){if(!file)return;try{const parsed=JSON.parse(await file.text());const chapters=Array.isArray(parsed)?parsed:parsed?.chapters;if(!Array.isArray(chapters))throw new Error('Use a JSON array or an object containing a "chapters" array.');if(chapters.length>80)throw new Error("A book can contain at most 80 chapter notes.");chapters.forEach((chapter,index)=>{if(!chapter||typeof chapter!=="object"||Array.isArray(chapter))throw new Error(`Chapter ${index+1} must be an object.`);if(!String(chapter.title||"").trim()||!String(chapter.summary||"").trim())throw new Error(`Chapter ${index+1} needs both title and summary.`)});const existing=document.querySelectorAll(".chapter-field").length;if(existing&&!confirm(`Replace the ${existing} chapter fields currently in this form? Nothing is saved until you submit the book.`))return;renderChapterFields(chapters);showToast(`Loaded ${chapters.length} chapter notes into the editor. Save the book to persist them.`);}catch(error){showToast(`Chapter import failed: ${error.message}`);}finally{$("#chapter-import-file").value="";}}
+
+async function uploadCover(book,file,edition){if(!file)return book;if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Cover must be JPEG, PNG, or WebP.");if(file.size>5*1024*1024)throw new Error("Cover image must be 5 MiB or smaller.");if(!edition.trim())throw new Error("Add an edition label for the selected cover.");return(await api(`/api/books/${encodeURIComponent(book.id)}/covers?edition=${encodeURIComponent(edition.trim())}`,{method:"POST",headers:{"Content-Type":file.type},body:file})).book;}
+async function uploadPdf(book,file){if(!file)return book;if(file.type!=="application/pdf")throw new Error("Document must be a PDF file.");if(file.size>MAX_PDF_BYTES)throw new Error("PDF must be 25 MiB or smaller.");return(await api(`/api/books/${encodeURIComponent(book.id)}/pdf`,{method:"POST",headers:{"Content-Type":"application/pdf","X-File-Name":encodeURIComponent(file.name)},body:file})).book;}
+async function saveBook(event){
+  event.preventDefault();const isEditing=Boolean(editingBookId),submit=event.currentTarget.querySelector('[type="submit"]');submit.disabled=true;submit.textContent=isEditing?"Updating…":"Saving…";const form=new FormData(event.currentTarget),cover=form.get("cover"),coverEdition=String(form.get("coverEdition")||""),pdfFile=form.get("pdfFile"),values=Object.fromEntries(form);delete values.cover;delete values.coverEdition;delete values.pdfFile;values.tags=String(values.tags).split(/[,;\n]/).map((item)=>item.trim()).filter(Boolean);values.takeaways=String(values.takeaways).split(/\r?\n/).map((item)=>item.trim()).filter(Boolean);values.chapters=readChapterFields();
+  try{if(cover?.size&&!coverEdition.trim())throw new Error("Enter an edition label for the selected cover.");if(pdfFile?.size&&String(values.pdfUrl||"").trim())throw new Error("Choose either a PDF URL or a PDF file, not both.");const path=isEditing?`/api/books/${encodeURIComponent(editingBookId)}`:"/api/books";let result=await api(path,{method:isEditing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});const warnings=[];if(cover?.size){try{result.book=await uploadCover(result.book,cover,coverEdition);}catch(error){warnings.push(`cover: ${error.message}`);}}if(pdfFile?.size){try{result.book=await uploadPdf(result.book,pdfFile);}catch(error){warnings.push(`PDF: ${error.message}`);}}books=[result.book,...books.filter((book)=>book.id!==result.book.id)];$("#book-dialog").close();editingBookId=null;render();showToast(`${isEditing?"Book summary updated":"Book summary added"}.${warnings.length?` Media issue — ${warnings.join("; ")}`:""}`);}catch(error){showToast(`${isEditing?"Update":"Save"} failed: ${error.message}`);}finally{submit.disabled=false;submit.textContent=isEditing?"Update summary":"Save summary";}
 }
 
-function tagsFor(book) { return Array.isArray(book.tags) && book.tags.length ? book.tags : [book.genre].filter(Boolean); }
-function chaptersFor(book) { return Array.isArray(book.chapters) ? book.chapters : []; }
-
-async function api(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  const token = sessionStorage.getItem(ADMIN_SESSION_KEY);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(path, { ...options, headers });
-  const text = await response.text();
-  let payload = {};
-  try { payload = JSON.parse(text || "{}"); } catch { payload = {}; }
-  if (!response.ok) throw new Error(payload.message || payload.error || `Request failed with HTTP ${response.status}`);
-  return payload;
+function openMedia(book){mediaBookId=book.id;$("#media-title").textContent=book.title;renderMedia(book);$("#media-dialog").showModal();}
+function renderMedia(book){
+  const covers=coversFor(book);$("#media-cover-count").textContent=`${covers.length}/${MAX_COVERS}`;$("#media-cover-upload").disabled=covers.length>=MAX_COVERS;$("#media-cover-file").disabled=covers.length>=MAX_COVERS;const grid=$("#media-covers");
+  grid.replaceChildren(...covers.map((cover,index)=>{const card=create("article",`media-cover${index===0?" primary":""}`),image=create("img");image.src=cover.url;image.alt=`${book.title}, ${cover.editionLabel}`;const label=create("strong","",cover.editionLabel),meta=create("span","",index===0?"Primary public cover":`Edition ${index+1}`),actions=create("div","admin-row-actions");if(index>0){const primary=create("button","button quiet","Make primary");primary.type="button";primary.addEventListener("click",()=>makePrimary(book,cover));actions.append(primary);}const remove=create("button","button danger","Remove");remove.type="button";remove.addEventListener("click",()=>deleteCover(book,cover));actions.append(remove);const body=create("div","media-cover-body");body.append(label,meta,actions);card.append(image,body);return card;}));if(!covers.length)grid.append(create("p","chapter-empty","No edition covers stored yet."));
+  const status=$("#media-pdf-status"),actions=$("#media-pdf-actions");actions.replaceChildren();if(!book.pdf){status.textContent="No PDF source stored.";}else if(book.pdf.type==="url"){status.textContent=`External URL · ${book.pdf.url}`;const open=create("button","button quiet","Open PDF URL");open.type="button";open.addEventListener("click",()=>window.open(book.pdf.url,"_blank","noopener,noreferrer"));actions.append(open);}else{status.textContent=`Private S3 file · ${book.pdf.name}`;const open=create("button","button quiet","Open private PDF");open.type="button";open.addEventListener("click",()=>openPrivatePdf(book));actions.append(open);}if(book.pdf){const remove=create("button","button danger","Remove PDF");remove.type="button";remove.addEventListener("click",()=>deletePdf(book));actions.append(remove);}
 }
+function replaceBook(updated){books=[updated,...books.filter((book)=>book.id!==updated.id)];render();if(mediaBookId===updated.id)renderMedia(updated);}
+async function makePrimary(book,cover){try{const result=await api(`/api/books/${encodeURIComponent(book.id)}/covers/${encodeURIComponent(cover.coverId)}/primary`,{method:"PATCH"});replaceBook(result.book);showToast(`${cover.editionLabel} is now the primary cover.`);}catch(error){showToast(`Primary cover update failed: ${error.message}`);}}
+async function deleteCover(book,cover){if(!confirm(`Remove the ${cover.editionLabel} cover from this book and S3?`))return;try{const result=await api(`/api/books/${encodeURIComponent(book.id)}/covers/${encodeURIComponent(cover.coverId)}`,{method:"DELETE"});replaceBook(result.book);showToast("Edition cover removed.");}catch(error){showToast(`Cover removal failed: ${error.message}`);}}
+async function openPrivatePdf(book){try{const token=sessionStorage.getItem(ADMIN_SESSION_KEY),response=await fetch(`/api/books/${encodeURIComponent(book.id)}/pdf`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.error||`HTTP ${response.status}`);}const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");link.href=url;link.target="_blank";link.rel="noopener";link.click();setTimeout(()=>URL.revokeObjectURL(url),60_000);}catch(error){showToast(`PDF access failed: ${error.message}`);}}
+async function deletePdf(book){if(!confirm("Remove this administrator-only PDF source?"))return;try{const result=await api(`/api/books/${encodeURIComponent(book.id)}/pdf`,{method:"DELETE"});replaceBook(result.book);showToast("Private PDF source removed.");}catch(error){showToast(`PDF removal failed: ${error.message}`);}}
 
-function showToast(message) {
-  const toast = $("#toast");
-  toast.textContent = message;
-  toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 4200);
-}
+async function deleteBook(book){if(!confirm(`Delete “${book.title}”, ${coversFor(book).length} cover(s), and its private PDF source? This cannot be undone.`))return;try{await api(`/api/books/${encodeURIComponent(book.id)}`,{method:"DELETE"});books=books.filter((item)=>item.id!==book.id);render();showToast("Book summary deleted.");}catch(error){showToast(`Delete failed: ${error.message}`);}}
+function exportBooks(){const exportable=books.map(({covers,coverUrl,pdf,...book})=>({...book,pdfUrl:pdf?.type==="url"?pdf.url:""}));const blob=new Blob([JSON.stringify({schemaVersion:5,appVersion:$("#admin-version").dataset.version||"",exportedAt:new Date().toISOString(),books:exportable},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`shelfnotes-${dateToday()}.json`;link.click();URL.revokeObjectURL(url);showToast("Library content exported. S3 files remain private and are not embedded.");}
+async function importBookFile(file){if(!file)return;try{const parsed=JSON.parse(await file.text()),result=await api("/api/books/import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(parsed)});books=result.books||[];$("#admin-search").value="";render();showToast(`Merged ${result.imported} summaries. The library now has ${result.total} books.`);}catch(error){showToast(`Library import failed: ${error.message}`);}finally{$("#import-file").value="";}}
 
-function setNotice(message = "") {
-  $("#admin-notice").textContent = message;
-  $("#admin-notice").hidden = !message;
-}
-
-function dateToday() { return new Date().toISOString().slice(0, 10); }
-
-function displayDate(value) {
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat(undefined, { day:"numeric", month:"short", year:"numeric" }).format(date);
-}
-
-function adminBookCard(book) {
-  const article = create("article", "admin-book-row");
-  const cover = create("div", `admin-book-cover cover--${book.color}${book.coverUrl ? " has-image" : ""}`);
-  if (book.coverUrl) {
-    const image = create("img", "cover-image");
-    image.src = book.coverUrl;
-    image.alt = `Cover of ${book.title}`;
-    image.loading = "lazy";
-    image.addEventListener("error", () => image.remove());
-    cover.append(image);
-  } else {
-    cover.append(create("span", "", book.title.slice(0, 1).toLocaleUpperCase()));
-  }
-  const content = create("div", "admin-book-content");
-  const heading = create("div", "admin-book-heading");
-  const title = create("div");
-  title.append(create("h3", "", book.title), create("p", "", `by ${book.author}`));
-  heading.append(title, create("span", "admin-book-date", displayDate(book.finishedAt)));
-  const tags = create("div", "tag-list");
-  tags.append(...tagsFor(book).map((tag) => create("span", "tag tag--plain", tag)));
-  const detail = create("p", "admin-book-detail", `${chaptersFor(book).length} chapters · ${book.takeaways?.length || 0} takeaways${book.coverUrl ? " · cover stored" : " · no cover"}`);
-  content.append(heading, tags, detail);
-  const actions = create("div", "admin-row-actions");
-  const edit = create("button", "button quiet", "Edit");
-  edit.type = "button";
-  edit.addEventListener("click", () => openBookForm(book));
-  const remove = create("button", "button danger", "Delete");
-  remove.type = "button";
-  remove.addEventListener("click", () => deleteBook(book));
-  actions.append(edit, remove);
-  article.append(cover, content, actions);
-  return article;
-}
-
-function render() {
-  const query = $("#admin-search").value.trim().toLocaleLowerCase();
-  const filtered = books.filter((book) => [book.title, book.author, ...tagsFor(book)].join(" ").toLocaleLowerCase().includes(query));
-  $("#admin-books").replaceChildren(...filtered.map(adminBookCard));
-  $("#admin-books").hidden = filtered.length === 0;
-  $("#admin-empty").hidden = filtered.length !== 0;
-  $("#admin-count").textContent = `${filtered.length} of ${books.length} ${books.length === 1 ? "record" : "records"}`;
-}
-
-async function loadBooks() {
-  const result = await api("/api/books");
-  books = result.books || [];
-  render();
-}
-
-async function migrateLegacyBooks() {
-  if (localStorage.getItem(MIGRATION_KEY)) return;
-  let legacy = [];
-  try { legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "[]"); } catch { legacy = []; }
-  if (!Array.isArray(legacy) || !legacy.length) return;
-  const result = await api("/api/books/import", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ books:legacy }) });
-  books = result.books || books;
-  localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
-  showToast(`Migrated ${result.imported} browser-only summaries into NEO DB.`);
-}
-
-async function unlock(token, announce = true) {
-  sessionStorage.setItem(ADMIN_SESSION_KEY, token);
-  try {
-    await api("/api/admin/status");
-    await loadBooks();
-    setNotice("");
-    try { await migrateLegacyBooks(); }
-    catch (error) { setNotice(`Admin access is active, but browser-note migration failed: ${error.message}`); }
-    render();
-    $("#auth-panel").hidden = true;
-    $("#admin-workspace").hidden = false;
-    $("#sign-out").hidden = false;
-    if (announce) showToast("Administrator access unlocked for this browser tab.");
-    return true;
-  } catch (error) {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    $("#auth-panel").hidden = false;
-    $("#admin-workspace").hidden = true;
-    $("#sign-out").hidden = true;
-    setNotice(`Administrator access failed: ${error.message}`);
-    return false;
-  }
-}
-
-function lockAdmin() {
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  books = [];
-  render();
-  $("#admin-token").value = "";
-  $("#auth-panel").hidden = false;
-  $("#admin-workspace").hidden = true;
-  $("#sign-out").hidden = true;
-  setNotice("");
-  showToast("Administrator access locked.");
-}
-
-function refreshChapterNumbers() {
-  const fields = [...document.querySelectorAll(".chapter-field")];
-  fields.forEach((field, index) => { field.querySelector(".chapter-number").textContent = `Chapter ${index + 1}`; });
-  if (!fields.length) $("#chapter-fields").replaceChildren(create("p", "chapter-empty", "No chapter notes yet. Add a chapter or import chapter JSON."));
-}
-
-function addChapterField(chapter = {}) {
-  const container = $("#chapter-fields");
-  container.querySelector(".chapter-empty")?.remove();
-  const field = create("article", "chapter-field");
-  const number = create("p", "chapter-number");
-  const remove = create("button", "chapter-remove", "Remove");
-  remove.type = "button";
-  remove.setAttribute("aria-label", "Remove chapter note");
-  remove.addEventListener("click", () => { field.remove(); refreshChapterNumbers(); });
-  const titleLabel = create("label");
-  const titleInput = Object.assign(create("input"), { required:true, maxLength:160, value:String(chapter.title || ""), autocomplete:"off" });
-  titleInput.className = "chapter-title";
-  titleLabel.append("Chapter title", titleInput);
-  const takeawayLabel = create("label");
-  const takeawayInput = Object.assign(create("textarea"), { maxLength:3600, rows:3, value:Array.isArray(chapter.takeaways) ? chapter.takeaways.join("\n") : String(chapter.takeaways || ""), placeholder:"One core takeaway per line" });
-  takeawayInput.className = "chapter-takeaways";
-  takeawayLabel.append("Core takeaways", takeawayInput);
-  const summaryLabel = create("label", "chapter-summary");
-  const summaryInput = Object.assign(create("textarea"), { required:true, maxLength:4000, rows:4, value:String(chapter.summary || ""), placeholder:"What happens in this chapter, and why does it matter?" });
-  summaryInput.className = "chapter-summary-input";
-  summaryLabel.append("Chapter summary", summaryInput);
-  field.append(number, remove, titleLabel, takeawayLabel, summaryLabel);
-  container.append(field);
-  refreshChapterNumbers();
-}
-
-function renderChapterFields(chapters = []) {
-  $("#chapter-fields").replaceChildren();
-  chapters.forEach(addChapterField);
-  refreshChapterNumbers();
-}
-
-function readChapterFields() {
-  return [...document.querySelectorAll(".chapter-field")].map((field) => ({
-    title: field.querySelector(".chapter-title").value.trim(),
-    summary: field.querySelector(".chapter-summary-input").value.trim(),
-    takeaways: field.querySelector(".chapter-takeaways").value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
-  }));
-}
-
-function openBookForm(book = null) {
-  editingBookId = book?.id || null;
-  $("#book-form").reset();
-  $("#book-date").value = book?.finishedAt || dateToday();
-  $("#form-eyebrow").textContent = book ? "Edit library record" : "New library record";
-  $("#form-title").textContent = book ? "Edit book summary" : "Add a book summary";
-  $("#form-description").textContent = book ? "Update metadata, tags, chapters, takeaways, or the stored cover." : "Create a searchable summary and optional chapter breakdown.";
-  $("#cover-help").textContent = book?.coverUrl ? "Current cover is preserved unless you choose a replacement." : "Optional · JPEG, PNG, or WebP · maximum 5 MiB";
-  $("#book-form").querySelector('[type="submit"]').textContent = book ? "Update summary" : "Save summary";
-  if (book) {
-    $("#book-title").value = book.title;
-    $("#book-author").value = book.author;
-    $("#book-tags").value = tagsFor(book).join(", ");
-    $("#book-rating").value = String(book.rating);
-    $("#book-color").value = book.color;
-    $("#book-idea").value = book.bigIdea;
-    $("#book-takeaways").value = (book.takeaways || []).join("\n");
-    $("#book-quote").value = book.quote || "";
-    $("#book-audience").value = book.audience;
-  }
-  renderChapterFields(book ? chaptersFor(book) : []);
-  $("#book-dialog").showModal();
-  $("#book-title").focus();
-}
-
-async function importChapterFile(file) {
-  if (!file) return;
-  try {
-    const parsed = JSON.parse(await file.text());
-    const chapters = Array.isArray(parsed) ? parsed : parsed?.chapters;
-    if (!Array.isArray(chapters)) throw new Error('Use a JSON array or an object containing a "chapters" array.');
-    if (chapters.length > 80) throw new Error("A book can contain at most 80 chapter notes.");
-    chapters.forEach((chapter, index) => {
-      if (!chapter || typeof chapter !== "object" || Array.isArray(chapter)) throw new Error(`Chapter ${index + 1} must be an object.`);
-      if (!String(chapter.title || "").trim() || !String(chapter.summary || "").trim()) throw new Error(`Chapter ${index + 1} needs both title and summary.`);
-    });
-    const existing = document.querySelectorAll(".chapter-field").length;
-    if (existing && !confirm(`Replace the ${existing} chapter fields currently in this form? Nothing is saved until you submit the book.`)) return;
-    renderChapterFields(chapters);
-    showToast(`Loaded ${chapters.length} chapter notes into the editor. Save the book to persist them.`);
-  } catch (error) {
-    showToast(`Chapter import failed: ${error.message}`);
-  } finally {
-    $("#chapter-import-file").value = "";
-  }
-}
-
-async function uploadCover(book, file) {
-  if (!file) return book;
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Cover must be JPEG, PNG, or WebP.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Cover image must be 5 MiB or smaller.");
-  return (await api(`/api/books/${encodeURIComponent(book.id)}/cover`, { method:"POST", headers:{ "Content-Type":file.type }, body:file })).book;
-}
-
-async function saveBook(event) {
-  event.preventDefault();
-  const isEditing = Boolean(editingBookId);
-  const submit = event.currentTarget.querySelector('[type="submit"]');
-  submit.disabled = true;
-  submit.textContent = isEditing ? "Updating…" : "Saving…";
-  const form = new FormData(event.currentTarget);
-  const cover = form.get("cover");
-  const values = Object.fromEntries(form);
-  delete values.cover;
-  values.tags = String(values.tags).split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
-  values.takeaways = String(values.takeaways).split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
-  values.chapters = readChapterFields();
-  try {
-    const path = isEditing ? `/api/books/${encodeURIComponent(editingBookId)}` : "/api/books";
-    let result = await api(path, { method:isEditing ? "PUT" : "POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(values) });
-    let coverWarning = "";
-    if (cover?.size) {
-      try { result.book = await uploadCover(result.book, cover); }
-      catch (error) { coverWarning = ` The summary was saved, but its cover failed: ${error.message}`; }
-    }
-    books = [result.book, ...books.filter((book) => book.id !== result.book.id)];
-    $("#book-dialog").close();
-    editingBookId = null;
-    render();
-    showToast(`${isEditing ? "Book summary updated" : "Book summary added"}.${coverWarning}`);
-  } catch (error) {
-    showToast(`${isEditing ? "Update" : "Save"} failed: ${error.message}`);
-  } finally {
-    submit.disabled = false;
-    submit.textContent = isEditing ? "Update summary" : "Save summary";
-  }
-}
-
-async function deleteBook(book) {
-  if (!confirm(`Delete “${book.title}” and its stored cover? This cannot be undone.`)) return;
-  try {
-    await api(`/api/books/${encodeURIComponent(book.id)}`, { method:"DELETE" });
-    books = books.filter((item) => item.id !== book.id);
-    render();
-    showToast("Book summary deleted.");
-  } catch (error) { showToast(`Delete failed: ${error.message}`); }
-}
-
-function exportBooks() {
-  const blob = new Blob([JSON.stringify({ schemaVersion:4, appVersion:$("#admin-version").dataset.version || "", exportedAt:new Date().toISOString(), books }, null, 2)], { type:"application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `shelfnotes-${dateToday()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showToast("Library exported with tags and chapter notes.");
-}
-
-async function importBookFile(file) {
-  if (!file) return;
-  try {
-    const parsed = JSON.parse(await file.text());
-    const result = await api("/api/books/import", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(parsed) });
-    books = result.books || [];
-    $("#admin-search").value = "";
-    render();
-    showToast(`Merged ${result.imported} summaries. The library now has ${result.total} books.`);
-  } catch (error) { showToast(`Library import failed: ${error.message}`); }
-  finally { $("#import-file").value = ""; }
-}
-
-$("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); await unlock($("#admin-token").value.trim()); });
-$("#sign-out").addEventListener("click", lockAdmin);
-$("#admin-search").addEventListener("input", render);
-$("#open-add").addEventListener("click", () => openBookForm());
-$("#book-form").addEventListener("submit", saveBook);
-$("#add-chapter").addEventListener("click", () => addChapterField());
-$("#import-chapters").addEventListener("click", () => $("#chapter-import-file").click());
-$("#chapter-import-file").addEventListener("change", (event) => importChapterFile(event.target.files[0]));
-$("#export-books").addEventListener("click", exportBooks);
-$("#import-books").addEventListener("click", () => $("#import-file").click());
-$("#import-file").addEventListener("change", (event) => importBookFile(event.target.files[0]));
-document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => document.getElementById(button.dataset.close)?.close()));
-document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
-
-renderChapterFields();
-render();
-api("/api/meta").then((meta) => {
-  $("#admin-version").dataset.version = meta.version;
-  $("#admin-version").textContent = `v${meta.version}${meta.revision ? ` · ${meta.revision.slice(0, 8)}` : ""}`;
-}).catch(() => { $("#admin-version").textContent = "Version unavailable"; });
-const existingToken = sessionStorage.getItem(ADMIN_SESSION_KEY);
-if (existingToken) unlock(existingToken, false);
+$("#auth-form").addEventListener("submit",async(event)=>{event.preventDefault();await unlock($("#admin-token").value.trim())});$("#sign-out").addEventListener("click",lockAdmin);$("#admin-search").addEventListener("input",render);$("#open-add").addEventListener("click",()=>openBookForm());$("#book-form").addEventListener("submit",saveBook);$("#add-chapter").addEventListener("click",()=>addChapterField());$("#import-chapters").addEventListener("click",()=>$("#chapter-import-file").click());$("#chapter-import-file").addEventListener("change",(event)=>importChapterFile(event.target.files[0]));$("#export-books").addEventListener("click",exportBooks);$("#import-books").addEventListener("click",()=>$("#import-file").click());$("#import-file").addEventListener("change",(event)=>importBookFile(event.target.files[0]));$("#media-cover-form").addEventListener("submit",async(event)=>{event.preventDefault();const book=books.find((item)=>item.id===mediaBookId),file=$("#media-cover-file").files[0],edition=$("#media-cover-edition").value;try{const updated=await uploadCover(book,file,edition);replaceBook(updated);event.currentTarget.reset();showToast("Edition cover added.");}catch(error){showToast(`Cover upload failed: ${error.message}`);}});document.querySelectorAll("[data-close]").forEach((button)=>button.addEventListener("click",()=>document.getElementById(button.dataset.close)?.close()));document.querySelectorAll("dialog").forEach((dialog)=>dialog.addEventListener("click",(event)=>{if(event.target===dialog)dialog.close()}));
+renderChapterFields();render();api("/api/meta").then((meta)=>{$("#admin-version").dataset.version=meta.version;$("#admin-version").textContent=`v${meta.version}${meta.revision?` · ${meta.revision.slice(0,8)}`:""}`;}).catch(()=>{$("#admin-version").textContent="Version unavailable"});const existingToken=sessionStorage.getItem(ADMIN_SESSION_KEY);if(existingToken)unlock(existingToken,false);

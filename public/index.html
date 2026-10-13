@@ -7,8 +7,8 @@
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes · Your reading, remembered</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=3.0.0-ui1">
-    <script src="/app.js?v=3.0.0" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=4.0.0">
+    <script src="/app.js?v=4.0.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -40,6 +40,17 @@
         </div>
       </section>
 
+      <section class="reading-moment" aria-label="Reading moment">
+        <article class="local-time-card">
+          <div><p class="eyebrow">Your reading time</p><time id="local-time">--:--</time></div>
+          <div class="time-context"><strong id="local-date">Loading local date…</strong><span id="local-zone"></span></div>
+        </article>
+        <article id="quote-card" class="quote-card" hidden>
+          <div><p class="eyebrow">From your memorable lines</p><blockquote id="random-quote"></blockquote><p id="random-quote-source"></p></div>
+          <button id="another-quote" class="quote-refresh" type="button" aria-label="Show another memorable line">↻</button>
+        </article>
+      </section>
+
       <section class="toolbar" aria-label="Bookshelf controls">
         <label class="search" for="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="Search title, author, tag, idea, or chapter…"></label>
       </section>
@@ -52,6 +63,7 @@
       </section>
       <section id="books-grid" class="books-grid" aria-live="polite"></section>
       <section id="empty-state" class="empty-state" hidden><span aria-hidden="true">◇</span><h2>No matching summaries</h2><p>Try another search or choose a different tag.</p></section>
+      <nav id="pagination" class="pagination" aria-label="Book pages" hidden></nav>
     </main>
 
     <footer><span>ShelfNotes</span><p>Summaries are stored in NEO DB; private covers are delivered from S3 through the app.</p><small id="app-version" class="version-badge">Version …</small></footer>
@@ -65,6 +77,7 @@
       </div>
       <div class="detail-body">
         <section class="idea"><p class="eyebrow">The big idea</p><p id="detail-idea"></p></section>
+        <section id="detail-editions-section" class="edition-gallery" hidden><div class="section-heading"><div><p class="eyebrow">Cover archive</p><h3>Available editions</h3></div><span id="detail-edition-count" class="count-pill"></span></div><div id="detail-editions" class="edition-thumbnails"></div></section>
         <section><h3>Key takeaways</h3><ul id="detail-takeaways" class="takeaways"></ul></section>
         <section id="detail-chapters-section" class="chapter-breakdown" hidden>
           <div class="section-heading"><div><p class="eyebrow">Deep notes</p><h3>Chapter-by-chapter breakdown</h3></div><span id="detail-chapter-count" class="count-pill"></span></div>

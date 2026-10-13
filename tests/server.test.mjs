@@ -38,14 +38,14 @@ test("serves liveness and dependency-aware readiness probes", async () => {
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "3.0.0" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.0.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
 });
 
 test("publishes non-secret application version metadata", async () => {
   const response = await fetch(`${await baseUrl()}/api/meta`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "3.0.0", revision: "" });
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.0.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
 });
 
 test("serves the app with security headers", async () => {
@@ -107,6 +107,33 @@ test("lets an administrator edit an existing summary and its chapter breakdown",
   assert.match(updated.bigIdea, /Reliable systems/);
 });
 
+test("keeps optional PDF metadata out of the public library response", async () => {
+  const base = await baseUrl();
+  const before = (await (await fetch(`${base}/api/books`)).json()).books.find((item) => item.id === "second-book");
+  const updatedResponse = await fetch(`${base}/api/books/second-book`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...before, pdfUrl: "https://example.com/private-book.pdf" })
+  });
+  assert.equal(updatedResponse.status, 200);
+  assert.equal((await updatedResponse.json()).book.pdf.type, "url");
+
+  const publicBook = (await (await fetch(`${base}/api/books`)).json()).books.find((item) => item.id === "second-book");
+  assert.equal("pdf" in publicBook, false);
+  assert.equal("pdfUrl" in publicBook, false);
+  assert.equal("pdfKey" in publicBook, false);
+
+  const adminBook = (await (await fetch(`${base}/api/admin/books`)).json()).books.find((item) => item.id === "second-book");
+  assert.deepEqual(adminBook.pdf, { type:"url", name:"External PDF", url:"https://example.com/private-book.pdf" });
+});
+
+test("rejects fake PDF bytes before accessing object storage", async () => {
+  const response = await fetch(`${await baseUrl()}/api/books/second-book/pdf`, {
+    method: "POST", headers: { "Content-Type": "application/pdf", "X-File-Name": "sample.pdf" }, body: "not a pdf"
+  });
+  assert.equal(response.status, 415);
+});
+
 test("rejects unsupported cover formats before accessing object storage", async () => {
   const response = await fetch(`${await baseUrl()}/api/books/second-book/cover`, {
     method: "POST", headers: { "Content-Type": "text/plain" }, body: "not an image"
@@ -121,6 +148,8 @@ test("protects production mutations with ADMIN_TOKEN", async () => {
     const base = await baseUrl();
     const deniedStatus = await fetch(`${base}/api/admin/status`);
     assert.equal(deniedStatus.status, 401);
+    const deniedAdminBooks = await fetch(`${base}/api/admin/books`);
+    assert.equal(deniedAdminBooks.status, 401);
     const allowedStatus = await fetch(`${base}/api/admin/status`, { headers: { Authorization: "Bearer test-administrator-secret" } });
     assert.equal(allowedStatus.status, 200);
     const denied = await fetch(`${base}/api/books`, {
