@@ -1,18 +1,23 @@
 # ShelfNotes Book Summary
 
+Current release: **v3.0.0**
+
 ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private JPEG, PNG, or WebP cover files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
 ## What is included
 
-- Add, browse, search, filter, export, import, and delete summaries
-- Administrator editing for existing summaries, including adding or replacing a cover
+- Public, read-only library with search and multi-tag filtering
+- Separate `/admin.html` workspace for all book CRUD, full-library import/export, and cover management
+- Up to 12 tags per book; the first tag remains the backward-compatible primary `genre`
 - Structured chapter-by-chapter summaries and core takeaways
+- Chapter-only JSON import inside the add/edit form
 - Compact mobile cards, controls, and full-screen mobile edit/detail dialogs
 - Persistent PostgreSQL storage shared by browsers and devices
 - Merge/upsert JSON import with a 500-book limit per file
 - Cover upload to S3-compatible Object Storage, maximum 5 MiB
 - Same-origin cover delivery, so the S3 bucket can remain private
 - Production write protection with `ADMIN_TOKEN`
+- Visible application version and optional deployment revision on both public and admin pages
 - One-time migration of data saved by the older browser-only version
 - `/healthz` liveness and `/readyz` dependency checks
 - Dockerfile, non-root runtime, graceful shutdown, and security headers
@@ -35,7 +40,7 @@ Copy their connection values into the Web Service environment variables describe
 3. Wait until it is ready.
 4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
 
-The service can create and update its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. Existing deployments receive a backward-compatible `chapters` JSONB column; existing summaries and covers are preserved. For a controlled production release, let the first deployment after this update run with migration enabled, then optionally change this value to `false`.
+The service can create and update its `book_summaries` table automatically when `DATABASE_AUTO_MIGRATE=true`. Existing deployments receive backward-compatible `chapters` and `tags` JSONB columns. Existing `genre` values are copied into `tags`, and existing summaries and covers are preserved. For a controlled production release, let the first deployment after this update run with migration enabled, then optionally change this value to `false`.
 
 ### 2. Create Object Storage
 
@@ -68,6 +73,8 @@ Attach the NEO DB if the form provides an attachment control. The important resu
 | Variable | Required value |
 |---|---|
 | `NODE_ENV` | `production` |
+| `APP_VERSION` | Optional override; omit it to use the version in `package.json` (`3.0.0`) |
+| `BUILD_REVISION` | Optional Git commit, image tag, or deployment identifier shown beside the version |
 | `DATABASE_URL` | PostgreSQL connection string from NEO DB |
 | `DATABASE_AUTO_MIGRATE` | `true` for the initial deployment |
 | `ADMIN_TOKEN` | A long, random secret known only to administrators |
@@ -85,23 +92,43 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 1. Approve the deployment and wait until the pod is running.
 2. Open the public URL plus `/healthz`. It should return `status: ok`.
 3. Open `/readyz`. It should return HTTP 200 with `database: postgres` and `storage: s3`.
-4. Open the dashboard and choose **Admin access**.
+4. Open `/admin.html` from the **Manage library** link.
 5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
-6. Add one summary with a cover, refresh the page, and confirm it remains visible.
-7. Open that book, choose **Edit summary**, add a chapter breakdown, and optionally select a new cover. Confirm the update appears without creating a duplicate.
+6. Add one summary with multiple comma-separated tags and a cover, refresh the page, and confirm it remains visible.
+7. Edit that book, add chapters manually or choose **Import chapter JSON**, and optionally select a new cover. Confirm the update appears without creating a duplicate.
 8. Open another browser, load the public URL, and confirm the summary and chapter notes are visible there too.
 9. Import a JSON backup and confirm existing summaries remain present.
 
-Visitors can view summaries without the token. Adding, importing, uploading, and deleting require administrator access in production.
+Visitors can view and filter summaries without the token. All content management is on `/admin.html`; adding, editing, importing, uploading, and deleting require administrator access in production.
 
 ## JSON import behavior
 
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current cover.
+- `tags` is an array of up to 12 strings. Older files containing only `genre` remain valid and become a one-tag book.
 - Chapter notes use `chapters: [{ "title": "...", "summary": "...", "takeaways": ["..."] }]`; older files without `chapters` remain valid.
 - Summaries not included in the file remain in the database.
 - A record without an ID receives a new ID and is added.
 - Cover image binaries are not embedded in JSON exports; exported records keep their cover metadata, while actual files remain in Object Storage.
+
+## Import chapter summaries while editing
+
+1. Open `/admin.html`, unlock it, and select **Edit** on a book.
+2. In **Chapter breakdown**, select **Import chapter JSON**.
+3. Choose a JSON file containing either a direct chapter array or `{ "chapters": [...] }`.
+4. Review the generated fields. Importing replaces only the chapter fields currently in the form; it does not save anything yet.
+5. Select **Update summary** to persist the chapters in NEO DB.
+
+Use [examples/chapters.example.json](./examples/chapters.example.json) as a beginner-friendly template. Each chapter requires `title` and `summary`; `takeaways` is an optional string array. A book can contain at most 80 chapters.
+
+## Version information
+
+- The release version comes from `package.json` and is shown in the public footer and admin header.
+- `APP_VERSION` can override the package version when a deployment pipeline needs a different release label.
+- `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
+- `GET /api/meta` returns the public version metadata.
+- `GET /healthz` includes the version to make runtime verification easier.
+- Increase the package version whenever a deployable behavior or schema changes. This repository uses `3.0.0` for the multi-tag model and separate admin application.
 
 ## Migrating the old browser-only library
 
@@ -134,7 +161,9 @@ Without `DATABASE_URL`, local development automatically uses temporary in-memory
 | Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
 | Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
 | Chapter section does not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `chapters` column is added |
-| Old browser notes are not migrated | Enter Admin access, verify the token, and keep the same public domain/browser storage |
+| Old browser notes are not migrated | Open `/admin.html`, unlock it with the correct token, and keep the same public domain/browser storage |
+| Tags do not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `tags` column is added and populated from `genre` |
+| Chapter JSON import fails | Use an array or `{ "chapters": [...] }`; every item needs a non-empty `title` and `summary` |
 
 ## Repository layout
 
@@ -145,10 +174,14 @@ book-summary/
 │   ├── storage.mjs
 │   └── validation.mjs
 ├── public/
+│   ├── admin.html
+│   ├── admin.js
 │   ├── app.js
 │   ├── icon.svg
 │   ├── index.html
 │   └── styles.css
+├── examples/
+│   └── chapters.example.json
 ├── scripts/validate.mjs
 ├── tests/server.test.mjs
 ├── .env.example

@@ -1,0 +1,19 @@
+{
+  "chapters": [
+    {
+      "title": "The first important idea",
+      "summary": "Explain the chapter in your own words and keep enough context to understand it later.",
+      "takeaways": [
+        "A concise core lesson",
+        "One practical action to try"
+      ]
+    },
+    {
+      "title": "Applying the idea",
+      "summary": "Describe how the author turns the main idea into a practical approach.",
+      "takeaways": [
+        "Connect the concept to a real situation"
+      ]
+    }
+  ]
+}

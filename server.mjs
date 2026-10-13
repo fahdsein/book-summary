@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, readFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
@@ -10,6 +10,9 @@ import { validateBook, validateImport } from "./lib/validation.mjs";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, "public");
+const PACKAGE = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+const APP_VERSION = process.env.APP_VERSION || PACKAGE.version;
+const BUILD_REVISION = String(process.env.BUILD_REVISION || "").slice(0, 40);
 const MAX_JSON_BYTES = 1024 * 1024;
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
 const TYPES = new Map([
@@ -80,6 +83,14 @@ async function handleApi(request, response, url) {
   }
   if (request.method === "GET" && url.pathname === "/api/books") {
     json(response, 200, { books:(await listBooks()).map(publicBook) }); return true;
+  }
+  if (request.method === "GET" && url.pathname === "/api/admin/status") {
+    const authorization = mutationAuthorized(request);
+    if (!authorization.ok) { json(response, authorization.status, { error:authorization.error }); return true; }
+    json(response, 200, { authorized:true }); return true;
+  }
+  if (request.method === "GET" && url.pathname === "/api/meta") {
+    json(response, 200, { name:"ShelfNotes", version:APP_VERSION, revision:BUILD_REVISION }); return true;
   }
   if (request.method === "POST" && url.pathname === "/api/books") {
     const book = validateBook(await readJson(request), { allowId:false });
@@ -154,7 +165,7 @@ function apiError(response, error) {
 export function startServer(port = Number(process.env.PORT || 3000)) {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://localhost");
-    if (request.method === "GET" && url.pathname === "/healthz") { json(response, 200, { status:"ok", service:"shelfnotes" }); return; }
+    if (request.method === "GET" && url.pathname === "/healthz") { json(response, 200, { status:"ok", service:"shelfnotes", version:APP_VERSION }); return; }
     if (request.method === "GET" && url.pathname === "/readyz") {
       const dependencies = { database:"unknown", storage:"unknown" };
       try { dependencies.database = (await databaseReady()).mode; } catch { dependencies.database = "unavailable"; }

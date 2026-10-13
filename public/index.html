@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Save, search, and revisit concise personal book summaries.">
+    <meta name="description" content="Save, search, filter, and revisit concise personal book summaries.">
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes · Your reading, remembered</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css">
-    <script src="/app.js" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=3.0.0-ui1">
+    <script src="/app.js?v=3.0.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -19,21 +19,10 @@
       <div class="header-actions">
         <label class="theme-control" for="theme-select"><span>Theme</span>
           <select id="theme-select" aria-label="Color theme">
-            <option value="system">System</option>
-            <option value="vintage">Vintage Library</option>
-            <option value="midnight">Midnight Coffee</option>
-            <option value="matcha" selected>Matcha Minimalist</option>
-            <option value="terracotta">Terracotta Novel</option>
-            <option value="nordic">Nordic Frost</option>
-            <option value="lavender">Literary Lavender</option>
-            <option value="anthropologist">Anthropologist's Desk</option>
-            <option value="autumn">Autumnal Pages</option>
-            <option value="monolith">Monolith Dark</option>
-            <option value="seaside">Seaside Journal</option>
+            <option value="system">System</option><option value="vintage">Vintage Library</option><option value="midnight">Midnight Coffee</option><option value="matcha" selected>Matcha Minimalist</option><option value="terracotta">Terracotta Novel</option><option value="nordic">Nordic Frost</option><option value="lavender">Literary Lavender</option><option value="anthropologist">Anthropologist's Desk</option><option value="autumn">Autumnal Pages</option><option value="monolith">Monolith Dark</option><option value="seaside">Seaside Journal</option>
           </select>
         </label>
-        <button id="admin-access" class="button quiet header-button" type="button"><span class="desktop-label">Admin access</span><span class="mobile-label">Admin</span></button>
-        <button id="open-add" class="button primary header-button" type="button"><span aria-hidden="true">＋</span><span class="desktop-label">Add summary</span><span class="mobile-label">Add</span></button>
+        <a class="button quiet header-button" href="/admin.html"><span class="desktop-label">Manage library</span><span class="mobile-label">Admin</span></a>
       </div>
     </header>
 
@@ -42,52 +31,36 @@
         <div class="hero-copy">
           <p class="eyebrow">A quiet place for useful ideas</p>
           <h1 id="page-title">Read deeply.<br><em>Remember clearly.</em></h1>
-          <p>Collect the central idea, practical lessons, memorable lines, and cover art from every book worth returning to.</p>
+          <p>Collect the central idea, practical lessons, memorable lines, chapter notes, and cover art from every book worth returning to.</p>
         </div>
         <div class="stats" aria-label="Reading statistics">
           <article><strong id="stat-books">0</strong><span>Books noted</span></article>
           <article><strong id="stat-streak">0</strong><span>Day streak</span></article>
-          <article><strong id="stat-genre">—</strong><span>Top genre</span></article>
+          <article><strong id="stat-tag">—</strong><span>Top tag</span></article>
         </div>
       </section>
 
       <section class="toolbar" aria-label="Bookshelf controls">
-        <label class="search" for="search">
-          <span aria-hidden="true">⌕</span>
-          <input id="search" type="search" autocomplete="off" placeholder="Search title, author, idea, or takeaway…">
-        </label>
-        <div class="library-actions">
-          <button id="export-books" class="button quiet" type="button">Export JSON</button>
-          <button id="import-books" class="button quiet" type="button">Import JSON</button>
-          <input id="import-file" type="file" accept="application/json,.json" hidden>
-        </div>
+        <label class="search" for="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="Search title, author, tag, idea, or chapter…"></label>
       </section>
       <div id="service-notice" class="service-notice" role="status" hidden></div>
-
-      <nav id="genre-filters" class="filters" aria-label="Filter by genre"></nav>
+      <nav id="tag-filters" class="filters" aria-label="Filter books by tag"></nav>
 
       <section class="shelf-heading">
         <div><p class="eyebrow">Personal library</p><h2>Book summaries</h2></div>
         <p id="result-count" aria-live="polite"></p>
       </section>
       <section id="books-grid" class="books-grid" aria-live="polite"></section>
-      <section id="empty-state" class="empty-state" hidden>
-        <span aria-hidden="true">◇</span>
-        <h2>No matching summaries</h2>
-        <p>Try another search or add the first note for this category.</p>
-        <button id="empty-add" class="button primary" type="button">Add a book</button>
-      </section>
+      <section id="empty-state" class="empty-state" hidden><span aria-hidden="true">◇</span><h2>No matching summaries</h2><p>Try another search or choose a different tag.</p></section>
     </main>
 
-    <footer><span>ShelfNotes</span><p>Summaries are stored in NEO DB; uploaded covers are stored in S3-compatible Object Storage.</p></footer>
+    <footer><span>ShelfNotes</span><p>Summaries are stored in NEO DB; private covers are delivered from S3 through the app.</p><small id="app-version" class="version-badge">Version …</small></footer>
 
     <dialog id="detail-dialog" class="dialog detail-dialog" aria-labelledby="detail-title">
       <button class="dialog-close" type="button" data-close="detail-dialog" aria-label="Close details">×</button>
       <div id="detail-cover" class="detail-cover">
-        <span id="detail-genre" class="badge"></span>
-        <p id="detail-date"></p>
-        <h2 id="detail-title"></h2>
-        <p id="detail-author"></p>
+        <div id="detail-tags" class="tag-list tag-list--cover"></div>
+        <p id="detail-date"></p><h2 id="detail-title"></h2><p id="detail-author"></p>
         <div id="detail-rating" class="rating" aria-label="Book rating"></div>
       </div>
       <div class="detail-body">
@@ -100,52 +73,7 @@
         <blockquote><p id="detail-quote"></p><footer>Memorable line</footer></blockquote>
         <section class="audience"><p class="eyebrow">Who should read it</p><p id="detail-audience"></p></section>
       </div>
-      <div class="dialog-actions">
-        <button id="delete-book" class="button danger" type="button">Delete</button>
-        <button id="edit-book" class="button primary" type="button">Edit summary</button>
-        <button class="button quiet" type="button" data-close="detail-dialog">Close</button>
-      </div>
-    </dialog>
-
-    <dialog id="book-dialog" class="dialog form-dialog" aria-labelledby="form-title">
-      <button class="dialog-close" type="button" data-close="book-dialog" aria-label="Close form">×</button>
-      <div class="dialog-intro"><p id="form-eyebrow" class="eyebrow">New reading note</p><h2 id="form-title">Add a book summary</h2><p id="form-description">Capture the useful part while it is still fresh.</p></div>
-      <form id="book-form">
-        <div class="form-grid">
-          <label>Book title<input id="book-title" name="title" required maxlength="100" autocomplete="off"></label>
-          <label>Author<input id="book-author" name="author" required maxlength="80" autocomplete="off"></label>
-          <label>Genre<select id="book-genre" name="genre" required>
-            <option>Fiction</option><option>Non-Fiction</option><option>Technology</option><option>Philosophy</option><option>Psychology</option><option>Biography</option><option>History</option><option>Science</option>
-          </select></label>
-          <label>Rating<select id="book-rating" name="rating" required>
-            <option value="5">5 — Exceptional</option><option value="4">4 — Recommended</option><option value="3">3 — Worthwhile</option><option value="2">2 — Mixed</option><option value="1">1 — Not for me</option>
-          </select></label>
-          <label>Finished on<input id="book-date" name="finishedAt" type="date" required></label>
-          <label>Cover color<select id="book-color" name="color"><option value="sage">Sage</option><option value="amber">Amber</option><option value="burgundy">Burgundy</option><option value="navy">Navy</option><option value="plum">Plum</option><option value="teal">Teal</option></select></label>
-          <label>Book cover image<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small id="cover-help">Optional · JPEG, PNG, or WebP · maximum 5 MiB</small></label>
-        </div>
-        <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
-        <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="1200" rows="4" placeholder="One takeaway per line"></textarea></label>
-        <section class="chapter-editor" aria-labelledby="chapter-editor-title">
-          <div class="chapter-editor-heading">
-            <div><p class="eyebrow">Optional deep notes</p><h3 id="chapter-editor-title">Chapter breakdown</h3><p>Add a summary and the core lessons for each useful chapter.</p></div>
-            <button id="add-chapter" class="button quiet" type="button">＋ Add chapter</button>
-          </div>
-          <div id="chapter-fields" class="chapter-fields"></div>
-        </section>
-        <label>Memorable line<input id="book-quote" name="quote" maxlength="300" placeholder="Optional short quotation or your own note"></label>
-        <label>Who should read it<input id="book-audience" name="audience" required maxlength="300"></label>
-        <div class="dialog-actions"><button class="button quiet" type="button" data-close="book-dialog">Cancel</button><button class="button primary" type="submit">Save summary</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="admin-dialog" class="dialog admin-dialog" aria-labelledby="admin-title">
-      <button class="dialog-close" type="button" data-close="admin-dialog" aria-label="Close administrator access">×</button>
-      <div class="dialog-intro"><p class="eyebrow">Protected changes</p><h2 id="admin-title">Administrator access</h2><p>Enter the same value configured as <code>ADMIN_TOKEN</code> on the NEO App Web Service. It stays only in this browser tab.</p></div>
-      <form id="admin-form">
-        <label>Admin token<input id="admin-token" type="password" required autocomplete="off"></label>
-        <div class="dialog-actions"><button id="clear-admin" class="button quiet" type="button">Clear access</button><button class="button primary" type="submit">Use token</button></div>
-      </form>
+      <div class="dialog-actions"><button class="button quiet" type="button" data-close="detail-dialog">Close</button></div>
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

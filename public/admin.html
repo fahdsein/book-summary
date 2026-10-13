@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-theme="matcha">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="ShelfNotes administrator content management.">
+    <meta name="theme-color" content="#f7f8f5">
+    <title>ShelfNotes Admin · Content management</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css?v=3.0.0-ui1">
+    <script src="/admin.js?v=3.0.0" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Return to public library"><span class="brand-mark" aria-hidden="true">S</span><span><strong>ShelfNotes Admin</strong><small>Protected content management</small></span></a>
+      <div class="header-actions"><a class="button quiet header-button" href="/">View library</a><button id="sign-out" class="button quiet header-button" type="button" hidden>Lock admin</button></div>
+    </header>
+
+    <main class="admin-main">
+      <section class="admin-hero">
+        <div><p class="eyebrow">Administrator workspace</p><h1>Manage the library</h1><p>Add, edit, import, export, and delete summaries from one protected page.</p></div>
+        <span id="admin-version" class="version-badge">Version …</span>
+      </section>
+      <div id="admin-notice" class="service-notice" role="status" hidden></div>
+
+      <section id="auth-panel" class="admin-auth" aria-labelledby="auth-title">
+        <div><p class="eyebrow">Protected access</p><h2 id="auth-title">Unlock content management</h2><p>Enter the value configured as <code>ADMIN_TOKEN</code>. It is kept only in this browser tab and is never written to local storage.</p></div>
+        <form id="auth-form"><label for="admin-token">Admin token</label><div class="inline-form"><input id="admin-token" type="password" required autocomplete="off"><button class="button primary" type="submit">Unlock admin</button></div></form>
+      </section>
+
+      <section id="admin-workspace" hidden>
+        <div class="admin-toolbar">
+          <label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, or tag…"></label>
+          <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+        </div>
+        <div class="admin-summary"><div><p class="eyebrow">Library records</p><h2>Books</h2></div><p id="admin-count" aria-live="polite"></p></div>
+        <section id="admin-books" class="admin-book-list" aria-live="polite"></section>
+        <section id="admin-empty" class="empty-state" hidden><span aria-hidden="true">◇</span><h2>No books found</h2><p>Add a summary or adjust the search.</p></section>
+      </section>
+    </main>
+
+    <dialog id="book-dialog" class="dialog form-dialog admin-book-dialog" aria-labelledby="form-title">
+      <button class="dialog-close" type="button" data-close="book-dialog" aria-label="Close form">×</button>
+      <div class="dialog-intro"><p id="form-eyebrow" class="eyebrow">New reading note</p><h2 id="form-title">Add a book summary</h2><p id="form-description">Create a searchable summary and optional chapter breakdown.</p></div>
+      <form id="book-form">
+        <div class="form-grid">
+          <label>Book title<input id="book-title" name="title" required maxlength="100" autocomplete="off"></label>
+          <label>Author<input id="book-author" name="author" required maxlength="80" autocomplete="off"></label>
+          <label class="form-span">Tags<input id="book-tags" name="tags" required maxlength="500" placeholder="Technology, Leadership, Productivity"><small>Separate tags with commas. The first tag is used as the legacy primary genre.</small></label>
+          <label>Rating<select id="book-rating" name="rating" required><option value="5">5 — Exceptional</option><option value="4">4 — Recommended</option><option value="3">3 — Worthwhile</option><option value="2">2 — Mixed</option><option value="1">1 — Not for me</option></select></label>
+          <label>Finished on<input id="book-date" name="finishedAt" type="date" required></label>
+          <label>Cover color<select id="book-color" name="color"><option value="sage">Sage</option><option value="amber">Amber</option><option value="burgundy">Burgundy</option><option value="navy">Navy</option><option value="plum">Plum</option><option value="teal">Teal</option></select></label>
+          <label>Book cover image<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small id="cover-help">Optional · JPEG, PNG, or WebP · maximum 5 MiB</small></label>
+        </div>
+        <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
+        <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="3600" rows="4" placeholder="One takeaway per line"></textarea></label>
+        <section class="chapter-editor" aria-labelledby="chapter-editor-title">
+          <div class="chapter-editor-heading">
+            <div><p class="eyebrow">Optional deep notes</p><h3 id="chapter-editor-title">Chapter breakdown</h3><p>Add chapters manually or import a chapter-only JSON file. Importing changes this form only until you save.</p></div>
+            <div class="chapter-actions"><button id="import-chapters" class="button quiet" type="button">Import chapter JSON</button><button id="add-chapter" class="button quiet" type="button">＋ Add chapter</button><input id="chapter-import-file" type="file" accept="application/json,.json" hidden></div>
+          </div>
+          <div id="chapter-fields" class="chapter-fields"></div>
+        </section>
+        <label>Memorable line<input id="book-quote" name="quote" maxlength="300" placeholder="Optional short quotation or your own note"></label>
+        <label>Who should read it<input id="book-audience" name="audience" required maxlength="300"></label>
+        <div class="dialog-actions"><button class="button quiet" type="button" data-close="book-dialog">Cancel</button><button class="button primary" type="submit">Save summary</button></div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

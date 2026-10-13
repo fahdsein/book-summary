@@ -38,8 +38,14 @@ test("serves liveness and dependency-aware readiness probes", async () => {
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "3.0.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
+});
+
+test("publishes non-secret application version metadata", async () => {
+  const response = await fetch(`${await baseUrl()}/api/meta`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "3.0.0", revision: "" });
 });
 
 test("serves the app with security headers", async () => {
@@ -61,7 +67,7 @@ test("persists summaries and merges JSON imports without replacing existing book
   const importedResponse = await fetch(`${base}/api/books/import`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ books: [
       { ...book, id: created.id, title: "The Pragmatic Programmer — Updated" },
-      { ...book, id: "second-book", title: "Designing Data-Intensive Applications", author: "Martin Kleppmann" }
+      { ...book, id: "second-book", title: "Designing Data-Intensive Applications", author: "Martin Kleppmann", tags: ["Technology", "Databases", "Distributed Systems"] }
     ] })
   });
   assert.equal(importedResponse.status, 200);
@@ -73,6 +79,8 @@ test("persists summaries and merges JSON imports without replacing existing book
   assert.equal(listed.length, 2);
   assert.equal(listed.find((item) => item.id === created.id).title, "The Pragmatic Programmer — Updated");
   assert.equal(listed.find((item) => item.id === created.id).chapters[0].title, "A Pragmatic Philosophy");
+  assert.deepEqual(listed.find((item) => item.id === created.id).tags, ["Technology"]);
+  assert.deepEqual(listed.find((item) => item.id === "second-book").tags, ["Technology", "Databases", "Distributed Systems"]);
   assert.ok(listed.some((item) => item.id === "second-book"));
 });
 
@@ -84,6 +92,7 @@ test("lets an administrator edit an existing summary and its chapter breakdown",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ...before,
+      tags: ["Technology", "Architecture"],
       bigIdea: "Reliable systems are built by understanding data, distribution, and trade-offs.",
       chapters: [
         { title: "Reliable, Scalable, Maintainable", summary: "Defines the three core goals of data systems.", takeaways: ["Reliability is fault tolerance"] },
@@ -94,6 +103,7 @@ test("lets an administrator edit an existing summary and its chapter breakdown",
   assert.equal(response.status, 200);
   const updated = (await response.json()).book;
   assert.equal(updated.chapters.length, 2);
+  assert.deepEqual(updated.tags, ["Technology", "Architecture"]);
   assert.match(updated.bigIdea, /Reliable systems/);
 });
 
@@ -109,6 +119,10 @@ test("protects production mutations with ADMIN_TOKEN", async () => {
   process.env.ADMIN_TOKEN = "test-administrator-secret";
   try {
     const base = await baseUrl();
+    const deniedStatus = await fetch(`${base}/api/admin/status`);
+    assert.equal(deniedStatus.status, 401);
+    const allowedStatus = await fetch(`${base}/api/admin/status`, { headers: { Authorization: "Bearer test-administrator-secret" } });
+    assert.equal(allowedStatus.status, 200);
     const denied = await fetch(`${base}/api/books`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...book, title: "Denied" })
     });
