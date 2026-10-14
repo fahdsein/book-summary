@@ -29,7 +29,7 @@ function publicBook(book){
   return {id:book.id,title:book.title,author:book.author,genre:book.genre,tags:book.tags,rating:book.rating,finishedAt:book.finishedAt,color:book.color,bigIdea:book.bigIdea,takeaways:book.takeaways,chapters:book.chapters,quote:book.quote,audience:book.audience,covers,coverUrl:covers[0]?.url||"",createdAt:book.createdAt,updatedAt:book.updatedAt};
 }
 function adminBook(book){return{...publicBook(book),pdf:book.pdfKey?{type:"upload",name:book.pdfName||"Book PDF"}:book.pdfUrl?{type:"url",name:"External PDF",url:book.pdfUrl}:null};}
-function safeId(value,label="book"){const id=decodeURIComponent(String(value||""));if(!/^[a-zA-Z0-9._-]{1,140}$/.test(id)){const error=new Error(`Invalid ${label} identifier`);error.status=400;throw error;}return id;}
+function safeId(value,label="book"){const id=decodeURIComponent(String(value||""));const maximum=label==="cover"?160:140;if(!new RegExp(`^[a-zA-Z0-9._-]{1,${maximum}}$`).test(id)){const error=new Error(`Invalid ${label} identifier`);error.status=400;throw error;}return id;}
 function cleanEdition(value){const edition=String(value||"").trim().replace(/\s+/g," ").slice(0,100);if(!edition){const error=new Error("Edition label is required");error.status=400;throw error;}return edition;}
 function cleanFilename(value){const name=decodeURIComponent(String(value||"book.pdf")).replace(/[\\/:*?"<>|\u0000-\u001f]/g,"-").trim().slice(0,180);return name.toLowerCase().endsWith(".pdf")?name:`${name||"book"}.pdf`;}
 function safeEqual(actual,expected){const left=Buffer.from(String(actual||""));const right=Buffer.from(String(expected||""));return left.length===right.length&&timingSafeEqual(left,right);}

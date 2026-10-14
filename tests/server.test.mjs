@@ -6,6 +6,7 @@ delete process.env.ADMIN_TOKEN;
 delete process.env.NODE_ENV;
 
 const { startServer } = await import("../server.mjs");
+const { legacyCoverFromRow } = await import("../lib/database.mjs");
 const server = startServer(0);
 after(() => new Promise((resolve) => server.close(resolve)));
 
@@ -38,14 +39,33 @@ test("serves liveness and dependency-aware readiness probes", async () => {
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.0.0" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.1.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
 });
 
 test("publishes non-secret application version metadata", async () => {
   const response = await fetch(`${await baseUrl()}/api/meta`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.0.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.1.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+});
+
+test("keeps a legacy cover visible when the relational cover backfill has not run", () => {
+  const createdAt = new Date("2026-10-01T08:00:00.000Z");
+  assert.deepEqual(legacyCoverFromRow({
+    id:"thinking-fast-and-slow",
+    cover_key:"book-covers/thinking-fast-and-slow/original.webp",
+    cover_content_type:"image/webp",
+    created_at:createdAt
+  }), {
+    coverId:"legacy-thinking-fast-and-slow",
+    bookId:"thinking-fast-and-slow",
+    editionLabel:"Default edition",
+    position:1,
+    objectKey:"book-covers/thinking-fast-and-slow/original.webp",
+    contentType:"image/webp",
+    createdAt:createdAt.toISOString()
+  });
+  assert.equal(legacyCoverFromRow({ id:"without-cover",cover_key:"" }),null);
 });
 
 test("serves the app with security headers", async () => {

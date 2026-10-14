@@ -1,6 +1,6 @@
 # ShelfNotes Book Summary
 
-Current release: **v4.0.0**
+Current release: **v4.1.0**
 
 ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private edition-cover images and optional PDF files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
@@ -137,7 +137,7 @@ Use [examples/chapters.example.json](./examples/chapters.example.json) as a begi
 - `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
 - `GET /api/meta` returns the public version metadata.
 - `GET /healthz` includes the version to make runtime verification easier.
-- Increase the package version whenever a deployable behavior or schema changes. This repository uses `4.0.0` for pagination, reading-moment UI, edition covers, and administrator-only PDFs.
+- Increase the package version whenever a deployable behavior or schema changes. Version `4.1.0` keeps the legacy-cover compatibility fix and adds dependency-free, reduced-motion-safe interaction polish.
 
 ## Migrating the old browser-only library
 
@@ -170,7 +170,7 @@ Without `DATABASE_URL`, local development automatically uses temporary in-memory
 | PDF upload is 413 | Reduce the PDF below `MAX_PDF_BYTES`, or raise the limit deliberately and verify platform request limits |
 | PDF upload is 415 | Upload a genuine PDF beginning with the `%PDF-` signature rather than a renamed file |
 | PDF is visible to public visitors | Do not place its URL in summary text; PDF metadata belongs only in the admin PDF fields and `/api/admin/books` |
-| Older cover is missing after upgrade | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the previous `cover_key` is copied into `book_covers` |
+| Older cover is missing after upgrade | Version 4.0.1 serves the legacy `cover_key` as a compatibility fallback. Keep `DATABASE_AUTO_MIGRATE=true` for one deployment to copy it into `book_covers` permanently. Also verify `/readyz` reports `storage: s3`. |
 | Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
 | Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
 | Chapter section does not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `chapters` column is added |

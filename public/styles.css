@@ -145,3 +145,39 @@ footer { display:flex;align-items:center;justify-content:space-between;gap:20px;
 @media(max-width:500px){
   .mobile-label{display:inline}.desktop-label{display:none}.admin-main{width:calc(100% - 20px);padding:18px 0 45px}.admin-hero{align-items:flex-start;flex-direction:column;gap:14px;padding:10px 0 22px}.admin-auth{gap:20px;margin-top:18px;padding:16px}.inline-form{grid-template-columns:1fr}.inline-form .button{width:100%}.admin-actions{grid-template-columns:1fr 1fr}.admin-actions .primary{grid-column:1/-1}.admin-book-row{gap:10px;padding:10px}.admin-book-heading{align-items:flex-start;flex-direction:column;gap:2px}.admin-book-date{white-space:normal}.admin-row-actions{display:grid;grid-template-columns:1fr 1fr}.admin-row-actions .button{width:100%;min-width:0}.chapter-actions{grid-template-columns:1fr}.tag{font-size:8px}.version-badge{white-space:normal;overflow-wrap:anywhere}
 }
+
+/* v4.1: lightweight motion and native-feeling interaction */
+:where(button,a,select,input,textarea){-webkit-tap-highlight-color:transparent}
+:where(button,.button,.book-open,.filter,.page-button,.edition-thumbnail,.quote-refresh){touch-action:manipulation}
+.button,.filter,.page-button,.edition-thumbnail,.quote-refresh,.book-card{transition-property:transform,border-color,background-color,box-shadow,opacity;transition-duration:180ms;transition-timing-function:cubic-bezier(.2,.8,.2,1)}
+.button:active,.filter:active,.page-button:active,.edition-thumbnail:active,.quote-refresh:active{transform:scale(.97)}
+.book-open:active{transform:scale(.992)}
+.book-open{transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.book-card{content-visibility:auto;contain-intrinsic-size:390px;will-change:transform}
+.book-card--enter{animation:book-enter 360ms both cubic-bezier(.2,.8,.2,1);animation-delay:calc(var(--enter-index,0) * 34ms)}
+.cover-image{opacity:0;transform:scale(1.025);transition:opacity 220ms ease,transform 520ms cubic-bezier(.2,.8,.2,1)}
+.cover-loaded .cover-image{opacity:1;transform:scale(1)}
+.books-grid{view-transition-name:shelf-library}
+.detail-cover{view-transition-name:book-detail-cover}
+dialog[open]{animation:dialog-in 220ms both cubic-bezier(.2,.8,.2,1)}
+dialog[open]::backdrop{animation:backdrop-in 180ms both ease-out}
+.detail-body>section,.detail-body>blockquote{animation:detail-item-in 300ms both cubic-bezier(.2,.8,.2,1)}
+.detail-body>*:nth-child(2){animation-delay:35ms}.detail-body>*:nth-child(3){animation-delay:70ms}.detail-body>*:nth-child(4){animation-delay:105ms}.detail-body>*:nth-child(5){animation-delay:140ms}
+@keyframes book-enter{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes dialog-in{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes detail-item-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes backdrop-in{from{opacity:0}to{opacity:1}}
+@media(hover:hover) and (pointer:fine){.book-card:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--accent) 52%,var(--line))}.button:hover,.filter:hover,.page-button:hover:not(:disabled),.edition-thumbnail:hover{transform:translateY(-1px)}}
+@media(max-width:980px){.reading-moment{grid-template-columns:1fr}.local-time-card,.quote-card{min-height:122px}}
+@media(max-width:500px){
+  .detail-dialog{width:100%;height:min(92dvh,850px);max-height:92dvh;margin:auto 0 0;border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;overscroll-behavior:contain}
+  .detail-dialog:before{content:"";position:sticky;display:block;z-index:5;top:7px;width:42px;height:4px;margin:7px auto -11px;border-radius:999px;background:color-mix(in srgb,var(--muted) 45%,transparent)}
+  .detail-dialog[open]{animation-name:sheet-in;animation-duration:260ms}
+  .detail-dialog .dialog-close{top:17px}
+  @keyframes sheet-in{from{opacity:.7;transform:translateY(35%)}to{opacity:1;transform:none}}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .book-card,.cover-image{will-change:auto;transform:none!important}
+}
