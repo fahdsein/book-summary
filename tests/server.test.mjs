@@ -6,7 +6,7 @@ delete process.env.ADMIN_TOKEN;
 delete process.env.NODE_ENV;
 
 const { startServer } = await import("../server.mjs");
-const { legacyCoverFromRow } = await import("../lib/database.mjs");
+const { addBookCover,legacyCoverFromRow,updateBookEdition } = await import("../lib/database.mjs");
 const server = startServer(0);
 after(() => new Promise((resolve) => server.close(resolve)));
 
@@ -19,6 +19,8 @@ const book = {
   title: "The Pragmatic Programmer",
   author: "Andrew Hunt and David Thomas",
   genre: "Technology",
+  collections: ["Work references", "Read again"],
+  favorite: true,
   rating: 5,
   finishedAt: "2026-10-11",
   color: "blue",
@@ -39,14 +41,14 @@ test("serves liveness and dependency-aware readiness probes", async () => {
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.3.0" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "5.0.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
 });
 
 test("publishes non-secret application version metadata", async () => {
   const response = await fetch(`${await baseUrl()}/api/meta`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.3.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "5.0.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
 });
 
 test("serves self-hosted reading fonts with the correct content type", async () => {
@@ -70,6 +72,13 @@ test("keeps a legacy cover visible when the relational cover backfill has not ru
     position:1,
     objectKey:"book-covers/thinking-fast-and-slow/original.webp",
     contentType:"image/webp",
+    isbn10:"",
+    isbn13:"",
+    publisher:"",
+    publicationYear:null,
+    language:"",
+    format:"",
+    pageCount:null,
     createdAt:createdAt.toISOString()
   });
   assert.equal(legacyCoverFromRow({ id:"without-cover",cover_key:"" }),null);
@@ -107,8 +116,28 @@ test("persists summaries and merges JSON imports without replacing existing book
   assert.equal(listed.find((item) => item.id === created.id).title, "The Pragmatic Programmer — Updated");
   assert.equal(listed.find((item) => item.id === created.id).chapters[0].title, "A Pragmatic Philosophy");
   assert.deepEqual(listed.find((item) => item.id === created.id).tags, ["Technology"]);
+  assert.deepEqual(listed.find((item) => item.id === created.id).collections, ["Work references", "Read again"]);
+  assert.equal(listed.find((item) => item.id === created.id).favorite, true);
   assert.deepEqual(listed.find((item) => item.id === "second-book").tags, ["Technology", "Databases", "Distributed Systems"]);
   assert.ok(listed.some((item) => item.id === "second-book"));
+});
+
+test("stores structured edition metadata and publishes it with the cover", async () => {
+  await addBookCover("second-book","book-covers/second-book/test.webp","image/webp","First edition");
+  const adminBefore=(await (await fetch(`${await baseUrl()}/api/admin/books`)).json()).books.find((item)=>item.id==="second-book");
+  const cover=adminBefore.covers[0];
+  const response=await fetch(`${await baseUrl()}/api/books/second-book/covers/${cover.coverId}`,{
+    method:"PATCH",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({editionLabel:"International paperback",isbn10:"0132350882",isbn13:"9780132350884",publisher:"Prentice Hall",publicationYear:2008,language:"English",format:"Paperback",pageCount:464})
+  });
+  assert.equal(response.status,200);
+  const edition=(await response.json()).book.covers[0];
+  assert.equal(edition.editionLabel,"International paperback");
+  assert.equal(edition.isbn13,"9780132350884");
+  assert.equal(edition.pageCount,464);
+  const stored=await updateBookEdition("second-book",cover.coverId,{...edition,editionLabel:"Updated edition"});
+  assert.equal(stored.editionLabel,"Updated edition");
 });
 
 test("lets an administrator edit an existing summary and its chapter breakdown", async () => {

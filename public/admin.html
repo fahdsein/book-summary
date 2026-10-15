@@ -7,8 +7,8 @@
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes Admin · Content management</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=4.3.0">
-    <script src="/admin.js?v=4.3.0" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=5.0.0">
+    <script src="/admin.js?v=5.0.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -30,7 +30,7 @@
 
       <section id="admin-workspace" hidden>
         <div class="admin-toolbar">
-          <label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, or tag…"></label>
+          <div class="admin-discovery"><label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, or edition…"></label><label class="compact-select">Sort<select id="admin-sort"><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label></div>
           <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
         </div>
         <div class="admin-summary"><div><p class="eyebrow">Library records</p><h2>Books</h2></div><p id="admin-count" aria-live="polite"></p></div>
@@ -47,13 +47,14 @@
           <label>Book title<input id="book-title" name="title" required maxlength="100" autocomplete="off"></label>
           <label>Author<input id="book-author" name="author" required maxlength="80" autocomplete="off"></label>
           <label class="form-span">Tags<input id="book-tags" name="tags" required maxlength="500" placeholder="Technology, Leadership, Productivity"><small>Separate tags with commas. The first tag is used as the legacy primary genre.</small></label>
+          <label class="form-span">Collections<input id="book-collections" name="collections" maxlength="720" placeholder="Favorites shelf, Work references, Read again"><small>Optional personal shelves. A book can belong to multiple collections.</small></label>
+          <label class="check-field form-span"><input id="book-favorite" name="favorite" type="checkbox"><span><strong>Favorite book</strong><small>Highlights this book and makes it available through the Favorites filter.</small></span></label>
           <label>Rating<select id="book-rating" name="rating" required><option value="5">5 — Exceptional</option><option value="4">4 — Recommended</option><option value="3">3 — Worthwhile</option><option value="2">2 — Mixed</option><option value="1">1 — Not for me</option></select></label>
           <label>Finished on<input id="book-date" name="finishedAt" type="date" required></label>
           <label>Cover color<select id="book-color" name="color"><option value="sage">Sage</option><option value="amber">Amber</option><option value="burgundy">Burgundy</option><option value="navy">Navy</option><option value="plum">Plum</option><option value="teal">Teal</option></select></label>
           <label>New edition cover<input id="book-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp"><small id="cover-help">Optional · appends a cover instead of replacing existing editions</small></label>
           <label>Cover edition label<input id="cover-edition" name="coverEdition" maxlength="100" placeholder="e.g. 10th Anniversary Hardcover"><small>Required only when adding a cover.</small></label>
-          <label class="form-span">Private PDF URL<input id="book-pdf-url" name="pdfUrl" type="url" maxlength="2000" placeholder="https://example.com/private-reading-copy.pdf"><small>Optional. Visible only in the unlocked admin workspace.</small></label>
-          <label class="form-span">Or upload a private PDF<input id="book-pdf-file" name="pdfFile" type="file" accept="application/pdf"><small id="pdf-help">Optional · stored privately in S3 · maximum 25 MiB · selecting a file replaces the URL source</small></label>
+          <section class="private-document-form form-span" aria-labelledby="private-document-title"><div><p class="eyebrow">Administrator only</p><h3 id="private-document-title">Private book document</h3><p>The document never appears in the public library. Choose either an external PDF URL or a private S3 upload.</p></div><label>Private PDF URL<input id="book-pdf-url" name="pdfUrl" type="url" maxlength="2000" placeholder="https://example.com/private-reading-copy.pdf"></label><label>Or upload a private PDF<input id="book-pdf-file" name="pdfFile" type="file" accept="application/pdf"><small id="pdf-help">Optional · stored privately in S3 · maximum 25 MiB · selecting a file replaces the URL source</small></label></section>
         </div>
         <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
         <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="3600" rows="4" placeholder="One takeaway per line"></textarea></label>
@@ -73,9 +74,15 @@
     <dialog id="media-dialog" class="dialog form-dialog media-dialog" aria-labelledby="media-title">
       <button class="dialog-close" type="button" data-close="media-dialog" aria-label="Close media manager">×</button>
       <div class="dialog-intro"><p class="eyebrow">Edition and document access</p><h2 id="media-title">Book media</h2><p>Choose the primary public cover, remove obsolete editions, or open the administrator-only PDF.</p></div>
-      <section><div class="section-heading"><div><p class="eyebrow">Public artwork</p><h3>Edition covers</h3></div><span id="media-cover-count" class="count-pill"></span></div><div id="media-covers" class="media-cover-grid"></div><form id="media-cover-form" class="compact-upload"><label>Edition label<input id="media-cover-edition" maxlength="100" required placeholder="e.g. Indonesian paperback"></label><label>Cover image<input id="media-cover-file" type="file" accept="image/jpeg,image/png,image/webp" required></label><button id="media-cover-upload" class="button primary" type="submit">Add edition cover</button></form></section>
+      <section><div class="section-heading"><div><p class="eyebrow">Public artwork and bibliography</p><h3>Book editions</h3></div><span id="media-cover-count" class="count-pill"></span></div><div id="media-covers" class="media-cover-grid"></div><form id="media-cover-form" class="compact-upload edition-upload"><div class="edition-form-grid"><label>Edition label<input id="media-edition-label" maxlength="100" required placeholder="e.g. Indonesian paperback"></label><label>Cover image<input id="media-cover-file" type="file" accept="image/jpeg,image/png,image/webp" required></label><label>Format<select id="media-edition-format"><option value="">Not specified</option><option>Hardcover</option><option>Paperback</option><option>Ebook</option><option>Audiobook</option><option>Other</option></select></label><label>Language<input id="media-edition-language" maxlength="60" placeholder="English"></label><label>Publisher<input id="media-edition-publisher" maxlength="120"></label><label>Publication year<input id="media-edition-year" type="number" min="1000" max="2200" inputmode="numeric"></label><label>Page count<input id="media-edition-pages" type="number" min="1" max="100000" inputmode="numeric"></label><label>ISBN-10<input id="media-edition-isbn10" maxlength="17" inputmode="text"></label><label>ISBN-13<input id="media-edition-isbn13" maxlength="20" inputmode="numeric"></label></div><button id="media-cover-upload" class="button primary" type="submit">Add book edition</button></form></section>
       <section class="private-document"><div><p class="eyebrow">Administrator only</p><h3>PDF document</h3><p id="media-pdf-status">No PDF source stored.</p></div><div id="media-pdf-actions" class="admin-row-actions"></div></section>
       <div class="dialog-actions"><button class="button quiet" type="button" data-close="media-dialog">Close</button></div>
+    </dialog>
+
+    <dialog id="edition-dialog" class="dialog form-dialog edition-dialog" aria-labelledby="edition-title">
+      <button class="dialog-close" type="button" data-close="edition-dialog" aria-label="Close edition editor">×</button>
+      <div class="dialog-intro"><p class="eyebrow">Edition details</p><h2 id="edition-title">Edit book edition</h2><p>Update the bibliographic information associated with this cover.</p></div>
+      <form id="edition-form"><div class="form-grid"><label class="form-span">Edition label<input id="edition-label" required maxlength="100"></label><label>Format<select id="edition-format"><option value="">Not specified</option><option>Hardcover</option><option>Paperback</option><option>Ebook</option><option>Audiobook</option><option>Other</option></select></label><label>Language<input id="edition-language" maxlength="60"></label><label>Publisher<input id="edition-publisher" maxlength="120"></label><label>Publication year<input id="edition-year" type="number" min="1000" max="2200" inputmode="numeric"></label><label>Page count<input id="edition-pages" type="number" min="1" max="100000" inputmode="numeric"></label><label>ISBN-10<input id="edition-isbn10" maxlength="17"></label><label>ISBN-13<input id="edition-isbn13" maxlength="20" inputmode="numeric"></label></div><div class="dialog-actions"><button class="button quiet" type="button" data-close="edition-dialog">Cancel</button><button class="button primary" type="submit">Save edition details</button></div></form>
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

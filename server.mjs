@@ -4,9 +4,9 @@ import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getBook,getCover,importBooks,listBooks,removeBook,removeBookCover,saveBook,setBookPdfFile,setPrimaryCover } from "./lib/database.mjs";
+import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getBook,getCover,importBooks,listBooks,removeBook,removeBookCover,saveBook,setBookPdfFile,setPrimaryCover,updateBookEdition } from "./lib/database.mjs";
 import { deleteObject,readObject,storageReady,uploadCover,uploadPdf,validateCoverType } from "./lib/storage.mjs";
-import { validateBook,validateImport } from "./lib/validation.mjs";
+import { validateBook,validateEdition,validateImport } from "./lib/validation.mjs";
 
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR=path.join(ROOT,"public");
@@ -25,8 +25,8 @@ async function readBody(request,maximum){if(Number(request.headers["content-leng
 async function readJson(request){const raw=await readBody(request,MAX_JSON_BYTES);try{return JSON.parse(raw.toString("utf8")||"{}");}catch{const error=new Error("Request body must be valid JSON");error.status=400;throw error;}}
 
 function publicBook(book){
-  const covers=(book.covers||[]).map((cover)=>({coverId:cover.coverId,editionLabel:cover.editionLabel,position:cover.position,url:`/api/covers/${encodeURIComponent(cover.coverId)}`}));
-  return {id:book.id,title:book.title,author:book.author,genre:book.genre,tags:book.tags,rating:book.rating,finishedAt:book.finishedAt,color:book.color,bigIdea:book.bigIdea,takeaways:book.takeaways,chapters:book.chapters,quote:book.quote,audience:book.audience,covers,coverUrl:covers[0]?.url||"",createdAt:book.createdAt,updatedAt:book.updatedAt};
+  const covers=(book.covers||[]).map((cover)=>({coverId:cover.coverId,editionLabel:cover.editionLabel,position:cover.position,isbn10:cover.isbn10||"",isbn13:cover.isbn13||"",publisher:cover.publisher||"",publicationYear:cover.publicationYear??null,language:cover.language||"",format:cover.format||"",pageCount:cover.pageCount??null,url:`/api/covers/${encodeURIComponent(cover.coverId)}`}));
+  return {id:book.id,title:book.title,author:book.author,genre:book.genre,tags:book.tags,collections:book.collections||[],favorite:Boolean(book.favorite),rating:book.rating,finishedAt:book.finishedAt,color:book.color,bigIdea:book.bigIdea,takeaways:book.takeaways,chapters:book.chapters,quote:book.quote,audience:book.audience,covers,editions:covers,coverUrl:covers[0]?.url||"",createdAt:book.createdAt,updatedAt:book.updatedAt};
 }
 function adminBook(book){return{...publicBook(book),pdf:book.pdfKey?{type:"upload",name:book.pdfName||"Book PDF"}:book.pdfUrl?{type:"url",name:"External PDF",url:book.pdfUrl}:null};}
 function safeId(value,label="book"){const id=decodeURIComponent(String(value||""));const maximum=label==="cover"?160:140;if(!new RegExp(`^[a-zA-Z0-9._-]{1,${maximum}}$`).test(id)){const error=new Error(`Invalid ${label} identifier`);error.status=400;throw error;}return id;}
@@ -63,6 +63,7 @@ async function handleApi(request,response,url){
   const primaryMatch=url.pathname.match(/^\/api\/books\/([^/]+)\/covers\/([^/]+)\/primary$/);
   if(request.method==="PATCH"&&primaryMatch){const bookId=safeId(primaryMatch[1]);const coverId=safeId(primaryMatch[2],"cover");const cover=await setPrimaryCover(bookId,coverId);if(!cover){json(response,404,{error:"cover_not_found"});return true;}json(response,200,{book:adminBook(await getBook(bookId))});return true;}
   const coverDelete=url.pathname.match(/^\/api\/books\/([^/]+)\/covers\/([^/]+)$/);
+  if(request.method==="PATCH"&&coverDelete){const bookId=safeId(coverDelete[1]);const coverId=safeId(coverDelete[2],"cover");const edition=validateEdition(await readJson(request));const updated=await updateBookEdition(bookId,coverId,edition);if(!updated){json(response,404,{error:"edition_not_found"});return true;}json(response,200,{book:adminBook(await getBook(bookId))});return true;}
   if(request.method==="DELETE"&&coverDelete){const bookId=safeId(coverDelete[1]);const coverId=safeId(coverDelete[2],"cover");const cover=await getCover(coverId);if(!cover||cover.bookId!==bookId){json(response,404,{error:"cover_not_found"});return true;}await removeBookCover(coverId);await deleteObject(cover.objectKey).catch(()=>{});json(response,200,{book:adminBook(await getBook(bookId))});return true;}
 
   const pdfMatch=url.pathname.match(/^\/api\/books\/([^/]+)\/pdf$/);

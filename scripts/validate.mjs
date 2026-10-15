@@ -4,7 +4,7 @@ const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs"
 for (const file of required) await readFile(new URL(`../${file}`, import.meta.url));
 
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-for (const id of ["books-grid", "search", "tag-filters", "pagination", "local-time", "random-quote", "detail-dialog", "detail-chapters", "detail-editions", "theme-select", "reader-font", "reader-size", "reader-leading", "reader-page", "app-version"]) {
+for (const id of ["books-grid", "search", "tag-filters", "collection-filter", "rating-filter", "favorite-filter", "sort-books", "clear-filters", "pagination", "local-time", "random-quote", "detail-dialog", "detail-chapters", "detail-editions", "detail-edition-meta", "theme-select", "reader-font", "reader-size", "reader-leading", "reader-page", "app-version"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Missing required UI element: ${id}`);
 }
 for (const theme of ["minimalist","cosmic","paper-journal","aurora"]) {
@@ -12,7 +12,7 @@ for (const theme of ["minimalist","cosmic","paper-journal","aurora"]) {
 }
 
 const adminHtml = await readFile(new URL("../public/admin.html", import.meta.url), "utf8");
-for (const id of ["auth-form", "admin-workspace", "admin-books", "book-dialog", "book-form", "book-tags", "book-pdf-url", "book-pdf-file", "media-dialog", "media-covers", "chapter-fields", "import-chapters", "chapter-import-file", "admin-version"]) {
+for (const id of ["auth-form", "admin-workspace", "admin-books", "admin-sort", "book-dialog", "book-form", "book-tags", "book-collections", "book-favorite", "book-pdf-url", "book-pdf-file", "media-dialog", "media-covers", "edition-dialog", "edition-form", "chapter-fields", "import-chapters", "chapter-import-file", "admin-version"]) {
   if (!adminHtml.includes(`id="${id}"`)) throw new Error(`Missing required admin UI element: ${id}`);
 }
 

@@ -7,8 +7,8 @@
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes · Your reading, remembered</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=4.3.0">
-    <script src="/app.js?v=4.3.0" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=5.0.0">
+    <script src="/app.js?v=5.0.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -51,8 +51,9 @@
         </article>
       </section>
 
-      <section class="toolbar" aria-label="Bookshelf controls">
-        <label class="search" for="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="Search title, author, tag, idea, or chapter…"></label>
+      <section class="toolbar discovery-toolbar" aria-label="Bookshelf controls">
+        <label class="search" for="search"><span aria-hidden="true">⌕</span><input id="search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, ISBN, or chapter…"></label>
+        <div class="discovery-controls"><label>Collection<select id="collection-filter"><option value="All">All collections</option></select></label><label>Rating<select id="rating-filter"><option value="0">Any rating</option><option value="5">5 stars</option><option value="4">4+ stars</option><option value="3">3+ stars</option></select></label><label>Show<select id="favorite-filter"><option value="all">All books</option><option value="favorites">Favorites only</option></select></label><label>Sort<select id="sort-books"><option value="added-desc">Recently added</option><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label><button id="clear-filters" class="button quiet" type="button">Clear</button></div>
       </section>
       <div id="service-notice" class="service-notice" role="status" hidden></div>
       <nav id="tag-filters" class="filters" aria-label="Filter books by tag"></nav>
@@ -86,7 +87,8 @@
           </div>
         </section>
         <section class="idea"><p class="eyebrow">The big idea</p><p id="detail-idea"></p></section>
-        <section id="detail-editions-section" class="edition-gallery" hidden><div class="section-heading"><div><p class="eyebrow">Cover archive</p><h3>Available editions</h3></div><span id="detail-edition-count" class="count-pill"></span></div><div id="detail-editions" class="edition-thumbnails"></div></section>
+        <section id="detail-collections-section" class="detail-collections" hidden><p class="eyebrow">Collections</p><div id="detail-collections" class="collection-list"></div></section>
+        <section id="detail-editions-section" class="edition-gallery" hidden><div class="section-heading"><div><p class="eyebrow">Edition archive</p><h3>Available editions</h3></div><span id="detail-edition-count" class="count-pill"></span></div><div id="detail-editions" class="edition-thumbnails"></div><dl id="detail-edition-meta" class="edition-meta"></dl></section>
         <section><h3>Key takeaways</h3><ul id="detail-takeaways" class="takeaways"></ul></section>
         <section id="detail-chapters-section" class="chapter-breakdown" hidden>
           <div class="section-heading"><div><p class="eyebrow">Deep notes</p><h3>Chapter-by-chapter breakdown</h3></div><span id="detail-chapter-count" class="count-pill"></span></div>

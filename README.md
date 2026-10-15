@@ -1,12 +1,13 @@
 # ShelfNotes Book Summary
 
-Current release: **v4.3.0**
+Current release: **v5.0.0**
 
 ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private edition-cover images and optional PDF files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
 ## What is included
 
-- Public, read-only library with search and multi-tag filtering
+- Public, read-only library with combined search, tag, collection, favorite, and rating filters
+- Sorting by recently added, recently updated, title, author, rating, or finished date; discovery state is preserved in the URL
 - Pagination at **12 books per page**, chosen to divide evenly across four-, three-, two-, and one-column layouts
 - A visitor-local clock with date and IANA timezone plus a randomized memorable line from stored books
 - Separate `/admin.html` workspace for all book CRUD, full-library import/export, and cover management
@@ -16,7 +17,9 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 - Compact mobile cards, controls, and full-screen mobile edit/detail dialogs
 - Persistent PostgreSQL storage shared by browsers and devices
 - Merge/upsert JSON import with a 500-book limit per file
-- Up to 8 labeled edition covers per book, with administrator controls for the primary cover and deletion
+- Personal collections and a favorite flag for each book
+- Up to 8 structured book editions with cover, ISBN-10/13, publisher, year, language, format, and page count
+- Administrator controls for editing edition details, choosing the primary public cover, and deleting an edition
 - Self-hosted OFL-licensed Literata reading text and Inter interface text, with no runtime font CDN dependency
 - Per-browser reading controls for serif/sans type, 15–22 px text, 1.5–1.7 line spacing, and app/paper/sepia/night pages
 - Four additional color palettes: Minimalist Zen, Cosmic Midnight, Paper Journal, and Pastel Aurora
@@ -48,7 +51,7 @@ Copy their connection values into the Web Service environment variables describe
 3. Wait until it is ready.
 4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
 
-The service can update its schema automatically when `DATABASE_AUTO_MIGRATE=true`. Version 4 adds PDF metadata columns and a relational `book_covers` table. Each previous single cover is copied into the new table as `Default edition` in primary position without deleting its S3 object. Existing summaries, tags, chapters, and media remain available. Let the first deployment after this update run with migration enabled; after verifying the migration, you may optionally change it to `false`.
+The service can update its schema automatically when `DATABASE_AUTO_MIGRATE=true`. Version 5 adds collections and favorites to books plus bibliographic fields to the existing relational `book_covers` edition records. Earlier covers remain in place and receive blank optional metadata. Each previous single cover is still copied into the table as `Default edition` without deleting its S3 object. Existing summaries, tags, chapters, PDFs, and cover objects remain available. Let the first deployment after this update run with migration enabled; after verifying the migration, you may optionally change it to `false`.
 
 ### 2. Create Object Storage
 
@@ -81,7 +84,7 @@ Attach the NEO DB if the form provides an attachment control. The important resu
 | Variable | Required value |
 |---|---|
 | `NODE_ENV` | `production` |
-| `APP_VERSION` | Optional override; omit it to use the version in `package.json` (`3.0.0`) |
+| `APP_VERSION` | Optional override; omit it to use the version in `package.json` (`5.0.0`) |
 | `BUILD_REVISION` | Optional Git commit, image tag, or deployment identifier shown beside the version |
 | `DATABASE_URL` | PostgreSQL connection string from NEO DB |
 | `DATABASE_AUTO_MIGRATE` | `true` for the initial deployment |
@@ -104,23 +107,38 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 4. Open `/admin.html` from the **Manage library** link.
 5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
 6. Add at least 13 summaries and confirm the public shelf shows 12 on page one and the remainder on page two.
-7. Add two edition covers to one book, open **Media**, set the second one as primary, and confirm the public card and detail gallery update.
+7. Add two editions to one book, include ISBN/publisher/format details, open **Media**, set the second one as primary, and confirm the public card and edition gallery update.
 8. Add either a PDF URL or PDF file. Confirm **Media** can open it while `/api/books` contains no PDF metadata.
 9. Edit that book, add chapters manually or choose **Import chapter JSON**, and confirm the update appears without creating a duplicate.
 10. Confirm the public page shows local time and a memorable line; use the refresh control to select another quote.
 11. Import a JSON backup and confirm existing summaries and media remain present.
+12. Put a book in two collections, mark it as a favorite, then verify the public collection, favorites, rating, sorting, and URL-persisted filters.
 
 Visitors can view and filter summaries without the token. All content management is on `/admin.html`; adding, editing, importing, uploading, and deleting require administrator access in production.
+
+## Where to add or open a PDF
+
+PDF access is intentionally administrator-only; visitors never see a PDF button or its metadata.
+
+1. Open `/admin.html` and unlock the administrator workspace.
+2. Select **Add book** or **Edit** and find the clearly labeled **Private book document** section.
+3. Choose one source: enter an HTTP(S) PDF URL, or select a local PDF for private S3 upload.
+4. Save the book.
+5. Select **Media** on that book to see the stored document status, open it, replace it through **Edit**, or remove it.
+
+The PDF is currently associated with the book rather than with one specific edition. Edition covers and bibliographic details are public; the document source remains private.
 
 ## JSON import behavior
 
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current edition covers and uploaded PDF.
 - `tags` is an array of up to 12 strings. Older files containing only `genre` remain valid and become a one-tag book.
+- `collections` is an optional array of up to 12 personal shelf names; `favorite` is an optional boolean.
 - Chapter notes use `chapters: [{ "title": "...", "summary": "...", "takeaways": ["..."] }]`; older files without `chapters` remain valid.
 - Summaries not included in the file remain in the database.
 - A record without an ID receives a new ID and is added.
 - Cover and PDF binaries are not embedded in JSON exports. Edition covers and uploaded PDFs remain in Object Storage.
+- Bibliographic edition metadata belongs to the existing S3-backed cover record and is managed from **Admin → Media**; it is not overwritten by a normal book JSON import.
 - An external PDF URL may be imported for a newly created record. A merge into an existing ID preserves that record's current PDF source to avoid silently replacing private media.
 
 ## Import chapter summaries while editing
@@ -140,7 +158,7 @@ Use [examples/chapters.example.json](./examples/chapters.example.json) as a begi
 - `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
 - `GET /api/meta` returns the public version metadata.
 - `GET /healthz` includes the version to make runtime verification easier.
-- Increase the package version whenever a deployable behavior or schema changes. Version `4.3.0` adds four editorial reading palettes while retaining self-hosted typography, reader preferences, and the legacy-cover improvements.
+- Increase the package version whenever a deployable behavior or schema changes. Version `5.0.0` adds structured edition metadata, collections, favorites, and combined public discovery controls while retaining private document access and the existing reading experience.
 
 ### Font licensing
 
