@@ -7,8 +7,8 @@
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes · Your reading, remembered</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=4.1.0-ui2">
-    <script src="/app.js?v=4.1.0-ui2" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=4.2.0">
+    <script src="/app.js?v=4.2.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -76,6 +76,15 @@
         <div id="detail-rating" class="rating" aria-label="Book rating"></div>
       </div>
       <div class="detail-body">
+        <section class="reader-settings" aria-labelledby="reader-settings-title">
+          <div class="reader-settings-heading"><div><p class="eyebrow">Reading display</p><h3 id="reader-settings-title">Make the page comfortable</h3></div><button id="reader-reset" class="reader-reset" type="button">Reset</button></div>
+          <div class="reader-controls">
+            <label>Typeface<select id="reader-font"><option value="serif">Literata · Serif</option><option value="sans">Inter · Sans serif</option></select></label>
+            <label>Text size<span class="range-value"><input id="reader-size" type="range" min="15" max="22" step="1" value="17"><output id="reader-size-value" for="reader-size">17 px</output></span></label>
+            <label>Line spacing<select id="reader-leading"><option value="1.5">Compact · 1.5</option><option value="1.6" selected>Comfortable · 1.6</option><option value="1.7">Relaxed · 1.7</option></select></label>
+            <label>Reading page<select id="reader-page"><option value="app">Match app</option><option value="paper">Paper white</option><option value="sepia">Warm sepia</option><option value="night">Reading night</option></select></label>
+          </div>
+        </section>
         <section class="idea"><p class="eyebrow">The big idea</p><p id="detail-idea"></p></section>
         <section id="detail-editions-section" class="edition-gallery" hidden><div class="section-heading"><div><p class="eyebrow">Cover archive</p><h3>Available editions</h3></div><span id="detail-edition-count" class="count-pill"></span></div><div id="detail-editions" class="edition-thumbnails"></div></section>
         <section><h3>Key takeaways</h3><ul id="detail-takeaways" class="takeaways"></ul></section>

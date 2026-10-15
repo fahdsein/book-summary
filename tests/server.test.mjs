@@ -39,14 +39,21 @@ test("serves liveness and dependency-aware readiness probes", async () => {
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.1.0" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "4.2.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
 });
 
 test("publishes non-secret application version metadata", async () => {
   const response = await fetch(`${await baseUrl()}/api/meta`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.1.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "4.2.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+});
+
+test("serves self-hosted reading fonts with the correct content type", async () => {
+  const response = await fetch(`${await baseUrl()}/fonts/literata-latin-variable.woff2`);
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get("content-type"),"font/woff2");
+  assert.ok(Number(response.headers.get("content-length"))>80_000);
 });
 
 test("keeps a legacy cover visible when the relational cover backfill has not run", () => {

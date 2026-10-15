@@ -17,7 +17,7 @@ const MAX_JSON_BYTES=1024*1024;
 const MAX_COVER_BYTES=5*1024*1024;
 const configuredPdfBytes=Number(process.env.MAX_PDF_BYTES||25*1024*1024);
 const MAX_PDF_BYTES=Number.isFinite(configuredPdfBytes)&&configuredPdfBytes>0?configuredPdfBytes:25*1024*1024;
-const TYPES=new Map([[".css","text/css; charset=utf-8"],[".html","text/html; charset=utf-8"],[".ico","image/x-icon"],[".js","text/javascript; charset=utf-8"],[".json","application/json; charset=utf-8"],[".svg","image/svg+xml; charset=utf-8"]]);
+const TYPES=new Map([[".css","text/css; charset=utf-8"],[".html","text/html; charset=utf-8"],[".ico","image/x-icon"],[".js","text/javascript; charset=utf-8"],[".json","application/json; charset=utf-8"],[".svg","image/svg+xml; charset=utf-8"],[".txt","text/plain; charset=utf-8"],[".woff2","font/woff2"]]);
 const SECURITY_HEADERS={"Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'","Referrer-Policy":"strict-origin-when-cross-origin","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY"};
 
 function json(response,status,value){const body=JSON.stringify(value);response.writeHead(status,{...SECURITY_HEADERS,"Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8","Content-Length":Buffer.byteLength(body)});response.end(body);}
