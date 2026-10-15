@@ -7,6 +7,9 @@ const html = await readFile(new URL("../public/index.html", import.meta.url), "u
 for (const id of ["books-grid", "search", "tag-filters", "pagination", "local-time", "random-quote", "detail-dialog", "detail-chapters", "detail-editions", "theme-select", "reader-font", "reader-size", "reader-leading", "reader-page", "app-version"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Missing required UI element: ${id}`);
 }
+for (const theme of ["minimalist","cosmic","paper-journal","aurora"]) {
+  if (!html.includes(`value="${theme}"`)) throw new Error(`Missing color-theme option: ${theme}`);
+}
 
 const adminHtml = await readFile(new URL("../public/admin.html", import.meta.url), "utf8");
 for (const id of ["auth-form", "admin-workspace", "admin-books", "book-dialog", "book-form", "book-tags", "book-pdf-url", "book-pdf-file", "media-dialog", "media-covers", "chapter-fields", "import-chapters", "chapter-import-file", "admin-version"]) {

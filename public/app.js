@@ -1,6 +1,6 @@
 const THEME_KEY="shelfnotes.theme.v1";
 const READER_KEY="shelfnotes.reader.v1";
-const THEMES=new Set(["system","vintage","midnight","matcha","terracotta","nordic","lavender","anthropologist","autumn","monolith","seaside"]);
+const THEMES=new Set(["system","vintage","midnight","matcha","terracotta","nordic","lavender","anthropologist","autumn","monolith","seaside","minimalist","cosmic","paper-journal","aurora"]);
 const BOOKS_PER_PAGE=12;
 const $=(selector)=>document.querySelector(selector);
 let books=[];
@@ -57,7 +57,7 @@ function chooseQuote(){const quoted=books.filter((book)=>book.quote);const optio
 function updateClock(){const now=new Date();$("#local-time").textContent=new Intl.DateTimeFormat(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(now);$("#local-date").textContent=new Intl.DateTimeFormat(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(now);$("#local-zone").textContent=Intl.DateTimeFormat().resolvedOptions().timeZone||"Local timezone";}
 function reducedMotion(){return matchMedia("(prefers-reduced-motion: reduce)").matches;}
 function transition(update){if(!document.startViewTransition||reducedMotion()){update();return;}document.startViewTransition(update);}
-function applyTheme(selected){const theme=THEMES.has(selected)?selected:"system";const resolved=theme==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"midnight":"matcha"):theme;document.documentElement.dataset.theme=resolved;$("#theme-select").value=theme;document.querySelector('meta[name="theme-color"]').content=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();}
+function applyTheme(selected){const theme=THEMES.has(selected)?selected:"system";const resolved=theme==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"midnight":"matcha"):theme;document.documentElement.dataset.theme=resolved;$("#theme-select").value=theme;const styles=getComputedStyle(document.documentElement);document.querySelector('meta[name="theme-color"]').content=styles.getPropertyValue("--theme-color").trim()||styles.getPropertyValue("--bg").trim();}
 const READER_DEFAULTS={font:"serif",size:17,leading:1.6,page:"app"};
 function readReaderSettings(){try{return{...READER_DEFAULTS,...JSON.parse(localStorage.getItem(READER_KEY)||"{}")};}catch{return{...READER_DEFAULTS};}}
 function applyReaderSettings(value,{save=true}={}){const settings={font:["serif","sans"].includes(value.font)?value.font:READER_DEFAULTS.font,size:Math.min(22,Math.max(15,Number(value.size)||READER_DEFAULTS.size)),leading:[1.5,1.6,1.7].includes(Number(value.leading))?Number(value.leading):READER_DEFAULTS.leading,page:["app","paper","sepia","night"].includes(value.page)?value.page:READER_DEFAULTS.page};const dialog=$("#detail-dialog");dialog.dataset.readerFont=settings.font;dialog.dataset.readerPage=settings.page;dialog.style.setProperty("--reader-size",`${settings.size}px`);dialog.style.setProperty("--reader-leading",settings.leading);$("#reader-font").value=settings.font;$("#reader-size").value=settings.size;$("#reader-size-value").value=`${settings.size} px`;$("#reader-leading").value=String(settings.leading);$("#reader-page").value=settings.page;if(save)localStorage.setItem(READER_KEY,JSON.stringify(settings));return settings;}

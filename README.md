@@ -1,6 +1,6 @@
 # ShelfNotes Book Summary
 
-Current release: **v4.2.0**
+Current release: **v4.3.0**
 
 ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private edition-cover images and optional PDF files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
@@ -19,6 +19,7 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 - Up to 8 labeled edition covers per book, with administrator controls for the primary cover and deletion
 - Self-hosted OFL-licensed Literata reading text and Inter interface text, with no runtime font CDN dependency
 - Per-browser reading controls for serif/sans type, 15–22 px text, 1.5–1.7 line spacing, and app/paper/sepia/night pages
+- Four additional color palettes: Minimalist Zen, Cosmic Midnight, Paper Journal, and Pastel Aurora
 - Cover upload to S3-compatible Object Storage, maximum 5 MiB per image
 - One optional administrator-only PDF source per book: either an external HTTP(S) URL or a private S3 PDF upload
 - Private PDF uploads are validated by content signature, limited to 25 MiB by default, and never exposed by the public books API
@@ -139,7 +140,7 @@ Use [examples/chapters.example.json](./examples/chapters.example.json) as a begi
 - `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
 - `GET /api/meta` returns the public version metadata.
 - `GET /healthz` includes the version to make runtime verification easier.
-- Increase the package version whenever a deployable behavior or schema changes. Version `4.2.0` adds self-hosted reading typography and persistent reader preferences while retaining the legacy-cover and interaction improvements.
+- Increase the package version whenever a deployable behavior or schema changes. Version `4.3.0` adds four editorial reading palettes while retaining self-hosted typography, reader preferences, and the legacy-cover improvements.
 
 ### Font licensing
 

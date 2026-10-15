@@ -1,6 +1,6 @@
 {
   "name": "shelfnotes-book-summary",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "private": true,
   "description": "A self-contained personal book-summary shelf deployable as a NEO App Web Service",
   "type": "module",
