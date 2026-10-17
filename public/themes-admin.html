@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-theme="matcha">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="ShelfNotes custom theme management.">
+    <meta name="theme-color" content="#f7f8f5">
+    <title>ShelfNotes Admin · Theme management</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css?v=5.0.0">
+    <script src="/themes-admin.js?v=5.0.0" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Return to public library"><span class="brand-mark" aria-hidden="true">S</span><span><strong>ShelfNotes Admin</strong><small>Protected theme management</small></span></a>
+      <div class="header-actions"><a class="button quiet header-button" href="/admin/books">Books</a><a class="button quiet header-button" href="/admin/themes" aria-current="page">Themes</a><a class="button quiet header-button" href="/">View library</a><button id="sign-out" class="button quiet header-button" type="button" hidden>Lock admin</button></div>
+    </header>
+    <main class="admin-main">
+      <section class="admin-hero"><div><p class="eyebrow">Administrator workspace</p><h1>Theme management</h1><p>Import, preview, publish, export, and remove custom themes.</p></div><span id="admin-version" class="version-badge">Version …</span></section>
+      <div id="admin-notice" class="service-notice" role="status" hidden></div>
+      <section id="auth-panel" class="admin-auth" aria-labelledby="auth-title"><div><p class="eyebrow">Protected access</p><h2 id="auth-title">Unlock theme management</h2><p>Use the configured <code>ADMIN_TOKEN</code>. The book and theme pages share the same browser-tab session.</p></div><form id="auth-form"><label for="admin-token">Admin token</label><div class="inline-form"><input id="admin-token" type="password" required autocomplete="off"><button class="button primary" type="submit">Unlock admin</button></div></form></section>
+      <section id="admin-workspace" hidden>
+        <section class="theme-manager" aria-labelledby="theme-manager-title">
+          <div><p class="eyebrow">Appearance</p><h2 id="theme-manager-title">Custom themes</h2><p>Import validated theme JSON, preview it locally, and publish it as the visitor default.</p></div>
+          <div class="theme-toolbar"><label class="search" for="theme-search"><span aria-hidden="true">⌕</span><input id="theme-search" type="search" autocomplete="off" placeholder="Search theme name or ID…"></label><label class="compact-select">Per page<select id="theme-page-size"><option value="10" selected>10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label><div class="admin-actions"><button id="reset-theme-preview" class="button quiet" type="button">Reset preview</button><button id="import-theme" class="button primary" type="button">Import theme JSON</button><input id="theme-import-file" type="file" accept="application/json,.json" hidden></div></div>
+          <div class="admin-summary"><div><p class="eyebrow">Theme records</p><h2>Themes</h2></div><p id="theme-count" aria-live="polite"></p></div>
+          <div id="theme-list" class="theme-list" aria-live="polite"></div>
+          <nav id="theme-pagination" class="pagination" aria-label="Theme management pages" hidden></nav>
+        </section>
+      </section>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

@@ -118,7 +118,7 @@ Visitors can view and filter summaries without the token. All content management
 
 ### Custom themes
 
-Open `/admin`, unlock the workspace, and use **Import theme JSON**. The file may contain one theme object, an array of themes, or an object with a `themes` array. Imported themes can be previewed, published as the visitor default, exported, updated by importing the same `id`, or deleted. Theme files accept only validated color tokens—not arbitrary CSS. See `examples/theme.example.json` for the complete format.
+Open `/admin/themes`, unlock the workspace, and use **Import theme JSON**. The file may contain one theme object, an array of themes, or an object with a `themes` array. Imported themes can be previewed, published as the visitor default, exported, updated by importing the same `id`, or deleted. Theme files accept only validated color tokens—not arbitrary CSS. See `examples/theme.example.json` for the complete format. Book management remains available separately at `/admin/books`; both pages provide adjustable, browser-persisted page sizes, as does the public library.
 
 ## Where to add or open a PDF
 

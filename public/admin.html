@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="ShelfNotes administrator content management.">
     <meta name="theme-color" content="#f7f8f5">
-    <title>ShelfNotes Admin · Content management</title>
+    <title>ShelfNotes Admin · Book management</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/styles.css?v=5.0.0">
     <script src="/admin.js?v=5.0.0" defer></script>
@@ -13,12 +13,12 @@
   <body>
     <header class="topbar">
       <a class="brand" href="/" aria-label="Return to public library"><span class="brand-mark" aria-hidden="true">S</span><span><strong>ShelfNotes Admin</strong><small>Protected content management</small></span></a>
-      <div class="header-actions"><a class="button quiet header-button" href="/">View library</a><button id="sign-out" class="button quiet header-button" type="button" hidden>Lock admin</button></div>
+      <div class="header-actions"><a class="button quiet header-button" href="/admin/books" aria-current="page">Books</a><a class="button quiet header-button" href="/admin/themes">Themes</a><a class="button quiet header-button" href="/">View library</a><button id="sign-out" class="button quiet header-button" type="button" hidden>Lock admin</button></div>
     </header>
 
     <main class="admin-main">
       <section class="admin-hero">
-        <div><p class="eyebrow">Administrator workspace</p><h1>Manage the library</h1><p>Manage summaries, edition covers, private PDFs, imports, and exports from one protected page.</p></div>
+        <div><p class="eyebrow">Administrator workspace</p><h1>Book management</h1><p>Manage summaries, edition covers, private PDFs, imports, and exports.</p></div>
         <span id="admin-version" class="version-badge">Version …</span>
       </section>
       <div id="admin-notice" class="service-notice" role="status" hidden></div>
@@ -29,18 +29,14 @@
       </section>
 
       <section id="admin-workspace" hidden>
-        <section class="theme-manager" aria-labelledby="theme-manager-title">
-          <div><p class="eyebrow">Appearance</p><h2 id="theme-manager-title">Custom themes</h2><p>Import a validated theme JSON, preview it here, and publish it as the default for visitors.</p></div>
-          <div class="admin-actions"><button id="reset-theme-preview" class="button quiet" type="button">Reset preview</button><button id="import-theme" class="button primary" type="button">Import theme JSON</button><input id="theme-import-file" type="file" accept="application/json,.json" hidden></div>
-          <div id="theme-list" class="theme-list" aria-live="polite"></div>
-        </section>
         <div class="admin-toolbar">
-          <div class="admin-discovery"><label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, or edition…"></label><label class="compact-select">Sort<select id="admin-sort"><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label></div>
+          <div class="admin-discovery"><label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, or edition…"></label><label class="compact-select">Sort<select id="admin-sort"><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label><label class="compact-select">Per page<select id="admin-page-size"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></label></div>
           <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
         </div>
         <div class="admin-summary"><div><p class="eyebrow">Library records</p><h2>Books</h2></div><p id="admin-count" aria-live="polite"></p></div>
         <section id="admin-books" class="admin-book-list" aria-live="polite"></section>
         <section id="admin-empty" class="empty-state" hidden><span aria-hidden="true">◇</span><h2>No books found</h2><p>Add a summary or adjust the search.</p></section>
+        <nav id="admin-pagination" class="pagination" aria-label="Book management pages" hidden></nav>
       </section>
     </main>
 
