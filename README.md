@@ -10,7 +10,7 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 - Sorting by recently added, recently updated, title, author, rating, or finished date; discovery state is preserved in the URL
 - Pagination at **12 books per page**, chosen to divide evenly across four-, three-, two-, and one-column layouts
 - A visitor-local clock with date and IANA timezone plus a randomized memorable line from stored books
-- Separate `/admin.html` workspace for all book CRUD, full-library import/export, and cover management
+- Separate `/admin` workspace for all book CRUD, full-library import/export, and cover management
 - Up to 12 tags per book; the first tag remains the backward-compatible primary `genre`
 - Structured chapter-by-chapter summaries and core takeaways
 - Chapter-only JSON import inside the add/edit form
@@ -104,7 +104,7 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 1. Approve the deployment and wait until the pod is running.
 2. Open the public URL plus `/healthz`. It should return `status: ok`.
 3. Open `/readyz`. It should return HTTP 200 with `database: postgres` and `storage: s3`.
-4. Open `/admin.html` from the **Manage library** link.
+4. Open `/admin` from the **Manage library** link.
 5. Enter the same value configured as `ADMIN_TOKEN`. It is kept only in that browser tab's session storage.
 6. Add at least 13 summaries and confirm the public shelf shows 12 on page one and the remainder on page two.
 7. Add two editions to one book, include ISBN/publisher/format details, open **Media**, set the second one as primary, and confirm the public card and edition gallery update.
@@ -114,13 +114,13 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 11. Import a JSON backup and confirm existing summaries and media remain present.
 12. Put a book in two collections, mark it as a favorite, then verify the public collection, favorites, rating, sorting, and URL-persisted filters.
 
-Visitors can view and filter summaries without the token. All content management is on `/admin.html`; adding, editing, importing, uploading, and deleting require administrator access in production.
+Visitors can view and filter summaries without the token. All content management is on `/admin`; adding, editing, importing, uploading, and deleting require administrator access in production.
 
 ## Where to add or open a PDF
 
 PDF access is intentionally administrator-only; visitors never see a PDF button or its metadata.
 
-1. Open `/admin.html` and unlock the administrator workspace.
+1. Open `/admin` and unlock the administrator workspace.
 2. Select **Add book** or **Edit** and find the clearly labeled **Private book document** section.
 3. Choose one source: enter an HTTP(S) PDF URL, or select a local PDF for private S3 upload.
 4. Save the book.
@@ -143,7 +143,7 @@ The PDF is currently associated with the book rather than with one specific edit
 
 ## Import chapter summaries while editing
 
-1. Open `/admin.html`, unlock it, and select **Edit** on a book.
+1. Open `/admin`, unlock it, and select **Edit** on a book.
 2. In **Chapter breakdown**, select **Import chapter JSON**.
 3. Choose a JSON file containing either a direct chapter array or `{ "chapters": [...] }`.
 4. Review the generated fields. Importing replaces only the chapter fields currently in the form; it does not save anything yet.
@@ -199,7 +199,7 @@ Without `DATABASE_URL`, local development automatically uses temporary in-memory
 | Public URL returns 502/504 | Confirm port `3000`, leave Start Command empty, and inspect `/healthz` plus deployment logs |
 | Database table is missing | Temporarily set `DATABASE_AUTO_MIGRATE=true` and redeploy |
 | Chapter section does not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `chapters` column is added |
-| Old browser notes are not migrated | Open `/admin.html`, unlock it with the correct token, and keep the same public domain/browser storage |
+| Old browser notes are not migrated | Open `/admin`, unlock it with the correct token, and keep the same public domain/browser storage |
 | Tags do not appear after upgrading | Set `DATABASE_AUTO_MIGRATE=true` for one deployment so the `tags` column is added and populated from `genre` |
 | Chapter JSON import fails | Use an array or `{ "chapters": [...] }`; every item needs a non-empty `title` and `summary` |
 

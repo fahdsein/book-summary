@@ -92,6 +92,21 @@ test("serves the app with security headers", async () => {
   assert.match(response.headers.get("content-security-policy"), /default-src 'self'/);
 });
 
+test("serves the admin page without requiring a file extension", async () => {
+  const base = await baseUrl();
+  for (const pathname of ["/admin", "/admin/"]) {
+    const response = await fetch(`${base}${pathname}`);
+    const body = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /^text\/html/);
+    assert.match(body, /Admin/);
+  }
+
+  const head = await fetch(`${base}/admin`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.match(head.headers.get("content-type"), /^text\/html/);
+});
+
 test("persists summaries and merges JSON imports without replacing existing books", async () => {
   const base = await baseUrl();
   const createdResponse = await fetch(`${base}/api/books`, {
