@@ -4,9 +4,9 @@ import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getBook,getCover,importBooks,listBooks,removeBook,removeBookCover,saveBook,setBookPdfFile,setPrimaryCover,updateBookEdition } from "./lib/database.mjs";
+import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getActiveTheme,getBook,getCover,importBooks,listBooks,listThemes,removeBook,removeBookCover,removeTheme,saveBook,saveTheme,setActiveTheme,setBookPdfFile,setPrimaryCover,updateBookEdition } from "./lib/database.mjs";
 import { deleteObject,readObject,storageReady,uploadCover,uploadPdf,validateCoverType } from "./lib/storage.mjs";
-import { validateBook,validateEdition,validateImport } from "./lib/validation.mjs";
+import { validateBook,validateEdition,validateImport,validateTheme } from "./lib/validation.mjs";
 
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR=path.join(ROOT,"public");
@@ -45,8 +45,14 @@ async function streamObject(response,object,{contentType,cacheControl="private, 
 async function handleApi(request,response,url){
   if(["POST","PUT","PATCH","DELETE"].includes(request.method||"")&&!requireAdmin(request,response))return true;
   if(request.method==="GET"&&url.pathname==="/api/books"){json(response,200,{books:(await listBooks()).map(publicBook)});return true;}
+  if(request.method==="GET"&&url.pathname==="/api/themes"){json(response,200,{themes:await listThemes(),activeThemeId:await getActiveTheme()});return true;}
   if(request.method==="GET"&&url.pathname==="/api/admin/status"){if(!requireAdmin(request,response))return true;json(response,200,{authorized:true});return true;}
   if(request.method==="GET"&&url.pathname==="/api/admin/books"){if(!requireAdmin(request,response))return true;json(response,200,{books:(await listBooks()).map(adminBook)});return true;}
+  if(request.method==="GET"&&url.pathname==="/api/admin/themes"){if(!requireAdmin(request,response))return true;json(response,200,{themes:await listThemes(),activeThemeId:await getActiveTheme()});return true;}
+  if(request.method==="POST"&&url.pathname==="/api/admin/themes"){const theme=validateTheme(await readJson(request));json(response,200,{theme:await saveTheme(theme)});return true;}
+  if(request.method==="PUT"&&url.pathname==="/api/admin/themes/active"){const value=await readJson(request);const id=String(value.id||"");if(id&&!(await listThemes()).some((theme)=>theme.id===id)){json(response,404,{error:"theme_not_found"});return true;}await setActiveTheme(id);json(response,200,{activeThemeId:id});return true;}
+  const themeMatch=url.pathname.match(/^\/api\/admin\/themes\/([a-z][a-z0-9-]{1,39})$/);
+  if(request.method==="DELETE"&&themeMatch){const removed=await removeTheme(themeMatch[1]);json(response,removed?200:404,removed?{deleted:true,id:themeMatch[1]}:{error:"theme_not_found"});return true;}
   if(request.method==="GET"&&url.pathname==="/api/meta"){json(response,200,{name:"ShelfNotes",version:APP_VERSION,revision:BUILD_REVISION,booksPerPage:12,maxCoversPerBook:8,maxPdfBytes:MAX_PDF_BYTES});return true;}
   if(request.method==="POST"&&url.pathname==="/api/books"){const book=validateBook(await readJson(request),{allowId:false});json(response,201,{book:adminBook(await saveBook(book))});return true;}
   if(request.method==="POST"&&url.pathname==="/api/books/import"){const imported=validateImport(await readJson(request));const books=await importBooks(imported);json(response,200,{imported:imported.length,total:books.length,strategy:"merge",books:books.map(adminBook)});return true;}

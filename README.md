@@ -51,7 +51,7 @@ Copy their connection values into the Web Service environment variables describe
 3. Wait until it is ready.
 4. Copy its PostgreSQL connection string. It becomes `DATABASE_URL`.
 
-The service can update its schema automatically when `DATABASE_AUTO_MIGRATE=true`. Version 5 adds collections and favorites to books plus bibliographic fields to the existing relational `book_covers` edition records. Earlier covers remain in place and receive blank optional metadata. Each previous single cover is still copied into the table as `Default edition` without deleting its S3 object. Existing summaries, tags, chapters, PDFs, and cover objects remain available. Let the first deployment after this update run with migration enabled; after verifying the migration, you may optionally change it to `false`.
+The service can update its schema automatically when `DATABASE_AUTO_MIGRATE=true`. Version 5 adds collections and favorites to books, bibliographic fields to the existing relational `book_covers` edition records, and the `custom_themes` and `app_settings` tables used by theme management. Earlier covers remain in place and receive blank optional metadata. Each previous single cover is still copied into the table as `Default edition` without deleting its S3 object. Existing summaries, tags, chapters, PDFs, and cover objects remain available. Let the first deployment after this update run with migration enabled; after verifying the migration, you may optionally change it to `false`.
 
 ### 2. Create Object Storage
 
@@ -115,6 +115,10 @@ NEO App supplies `PORT`; do not override it unless the platform form explicitly 
 12. Put a book in two collections, mark it as a favorite, then verify the public collection, favorites, rating, sorting, and URL-persisted filters.
 
 Visitors can view and filter summaries without the token. All content management is on `/admin`; adding, editing, importing, uploading, and deleting require administrator access in production.
+
+### Custom themes
+
+Open `/admin`, unlock the workspace, and use **Import theme JSON**. Imported themes can be previewed, published as the visitor default, exported, updated by importing the same `id`, or deleted. Theme files accept only validated color tokens—not arbitrary CSS. See `examples/theme.example.json` for the complete format.
 
 ## Where to add or open a PDF
 

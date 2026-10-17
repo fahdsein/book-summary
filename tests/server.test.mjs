@@ -107,6 +107,30 @@ test("serves the admin page without requiring a file extension", async () => {
   assert.match(head.headers.get("content-type"), /^text\/html/);
 });
 
+test("imports, publishes, lists, and deletes a custom theme", async () => {
+  const base = await baseUrl();
+  const theme = { id:"forest-study",name:"Forest Study",tokens:{bg:"#eef3ed",surface:"#ffffff",surface2:"#dfe9df",ink:"#203128",muted:"#627269",accent:"#376b4d",accent2:"#b98b45",line:"#cad8cd",danger:"#a4433e",coverInk:"#ffffff",themeColor:"#eef3ed"} };
+  const imported = await fetch(`${base}/api/admin/themes`, { method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(theme) });
+  assert.equal(imported.status,200);
+  assert.equal((await imported.json()).theme.name,"Forest Study");
+
+  const published = await fetch(`${base}/api/admin/themes/active`, { method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:theme.id}) });
+  assert.equal(published.status,200);
+  const publicThemes = await (await fetch(`${base}/api/themes`)).json();
+  assert.equal(publicThemes.activeThemeId,theme.id);
+  assert.equal(publicThemes.themes[0].tokens.accent,"#376b4d");
+
+  assert.equal((await fetch(`${base}/api/admin/themes/${theme.id}`,{method:"DELETE"})).status,200);
+  const afterDelete = await (await fetch(`${base}/api/themes`)).json();
+  assert.equal(afterDelete.activeThemeId,"");
+  assert.equal(afterDelete.themes.length,0);
+});
+
+test("rejects unsafe or incomplete custom theme JSON", async () => {
+  const response = await fetch(`${await baseUrl()}/api/admin/themes`, { method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:"unsafe",name:"Unsafe",tokens:{bg:"url(https://example.com)"}}) });
+  assert.equal(response.status,400);
+});
+
 test("persists summaries and merges JSON imports without replacing existing books", async () => {
   const base = await baseUrl();
   const createdResponse = await fetch(`${base}/api/books`, {

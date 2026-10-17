@@ -29,6 +29,11 @@
       </section>
 
       <section id="admin-workspace" hidden>
+        <section class="theme-manager" aria-labelledby="theme-manager-title">
+          <div><p class="eyebrow">Appearance</p><h2 id="theme-manager-title">Custom themes</h2><p>Import a validated theme JSON, preview it here, and publish it as the default for visitors.</p></div>
+          <div class="admin-actions"><button id="reset-theme-preview" class="button quiet" type="button">Reset preview</button><button id="import-theme" class="button primary" type="button">Import theme JSON</button><input id="theme-import-file" type="file" accept="application/json,.json" hidden></div>
+          <div id="theme-list" class="theme-list" aria-live="polite"></div>
+        </section>
         <div class="admin-toolbar">
           <div class="admin-discovery"><label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, or edition…"></label><label class="compact-select">Sort<select id="admin-sort"><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label></div>
           <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>

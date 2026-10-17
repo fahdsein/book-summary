@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "forest-study",
+  "name": "Forest Study",
+  "tokens": {
+    "bg": "#eef3ed",
+    "surface": "#ffffff",
+    "surface2": "#dfe9df",
+    "ink": "#203128",
+    "muted": "#627269",
+    "accent": "#376b4d",
+    "accent2": "#b98b45",
+    "line": "#cad8cd",
+    "danger": "#a4433e",
+    "coverInk": "#ffffff",
+    "themeColor": "#eef3ed"
+  }
+}
