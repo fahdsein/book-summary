@@ -118,7 +118,7 @@ Visitors can view and filter summaries without the token. All content management
 
 ### Custom themes
 
-Open `/admin`, unlock the workspace, and use **Import theme JSON**. Imported themes can be previewed, published as the visitor default, exported, updated by importing the same `id`, or deleted. Theme files accept only validated color tokens—not arbitrary CSS. See `examples/theme.example.json` for the complete format.
+Open `/admin`, unlock the workspace, and use **Import theme JSON**. The file may contain one theme object, an array of themes, or an object with a `themes` array. Imported themes can be previewed, published as the visitor default, exported, updated by importing the same `id`, or deleted. Theme files accept only validated color tokens—not arbitrary CSS. See `examples/theme.example.json` for the complete format.
 
 ## Where to add or open a PDF
 
@@ -134,6 +134,7 @@ The PDF is currently associated with the book rather than with one specific edit
 
 ## JSON import behavior
 
+- A file may contain one book object, an array of books, or an object with a `books` array.
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current edition covers and uploaded PDF.
 - `tags` is an array of up to 12 strings. Older files containing only `genre` remain valid and become a one-tag book.

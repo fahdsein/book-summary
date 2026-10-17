@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getActiveTheme,getBook,getCover,importBooks,listBooks,listThemes,removeBook,removeBookCover,removeTheme,saveBook,saveTheme,setActiveTheme,setBookPdfFile,setPrimaryCover,updateBookEdition } from "./lib/database.mjs";
 import { deleteObject,readObject,storageReady,uploadCover,uploadPdf,validateCoverType } from "./lib/storage.mjs";
-import { validateBook,validateEdition,validateImport,validateTheme } from "./lib/validation.mjs";
+import { validateBook,validateEdition,validateImport,validateThemeImport } from "./lib/validation.mjs";
 
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR=path.join(ROOT,"public");
@@ -49,7 +49,7 @@ async function handleApi(request,response,url){
   if(request.method==="GET"&&url.pathname==="/api/admin/status"){if(!requireAdmin(request,response))return true;json(response,200,{authorized:true});return true;}
   if(request.method==="GET"&&url.pathname==="/api/admin/books"){if(!requireAdmin(request,response))return true;json(response,200,{books:(await listBooks()).map(adminBook)});return true;}
   if(request.method==="GET"&&url.pathname==="/api/admin/themes"){if(!requireAdmin(request,response))return true;json(response,200,{themes:await listThemes(),activeThemeId:await getActiveTheme()});return true;}
-  if(request.method==="POST"&&url.pathname==="/api/admin/themes"){const theme=validateTheme(await readJson(request));json(response,200,{theme:await saveTheme(theme)});return true;}
+  if(request.method==="POST"&&url.pathname==="/api/admin/themes"){const input=validateThemeImport(await readJson(request));const themes=[];for(const theme of input)themes.push(await saveTheme(theme));json(response,200,{imported:themes.length,theme:themes[0],themes});return true;}
   if(request.method==="PUT"&&url.pathname==="/api/admin/themes/active"){const value=await readJson(request);const id=String(value.id||"");if(id&&!(await listThemes()).some((theme)=>theme.id===id)){json(response,404,{error:"theme_not_found"});return true;}await setActiveTheme(id);json(response,200,{activeThemeId:id});return true;}
   const themeMatch=url.pathname.match(/^\/api\/admin\/themes\/([a-z][a-z0-9-]{1,39})$/);
   if(request.method==="DELETE"&&themeMatch){const removed=await removeTheme(themeMatch[1]);json(response,removed?200:404,removed?{deleted:true,id:themeMatch[1]}:{error:"theme_not_found"});return true;}

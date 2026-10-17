@@ -7,6 +7,7 @@ delete process.env.NODE_ENV;
 
 const { startServer } = await import("../server.mjs");
 const { addBookCover,legacyCoverFromRow,updateBookEdition } = await import("../lib/database.mjs");
+const { validateImport,validateThemeImport } = await import("../lib/validation.mjs");
 const server = startServer(0);
 after(() => new Promise((resolve) => server.close(resolve)));
 
@@ -34,6 +35,16 @@ const book = {
   quote: "Care about your craft.",
   audience: "Software developers"
 };
+
+test("accepts single, array, and wrapped JSON import formats", () => {
+  assert.equal(validateImport(book).length,1);
+  assert.equal(validateImport([book]).length,1);
+  assert.equal(validateImport({books:[book]}).length,1);
+  const theme={id:"forest-study",name:"Forest Study",tokens:{bg:"#eef3ed",surface:"#ffffff",surface2:"#dfe9df",ink:"#203128",muted:"#627269",accent:"#376b4d",accent2:"#b98b45",line:"#cad8cd",danger:"#a4433e",coverInk:"#ffffff",themeColor:"#eef3ed"}};
+  assert.equal(validateThemeImport(theme).length,1);
+  assert.equal(validateThemeImport([theme]).length,1);
+  assert.equal(validateThemeImport({themes:[theme]}).length,1);
+});
 
 test("serves liveness and dependency-aware readiness probes", async () => {
   const base = await baseUrl();
