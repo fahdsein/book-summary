@@ -135,6 +135,7 @@ The PDF is currently associated with the book rather than with one specific edit
 
 ## JSON import behavior
 
+- In **Admin → Books**, use **Copy JSON** on a book to copy its current import-ready object. Edit the copied `longSummary` and keep the `id` unchanged; importing it will update that book instead of creating a duplicate.
 - A file may contain one book object, an array of books, or an object with a `books` array.
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current edition covers and uploaded PDF.
