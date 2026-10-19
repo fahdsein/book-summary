@@ -26,6 +26,7 @@ const book = {
   finishedAt: "2026-10-11",
   color: "blue",
   bigIdea: "Treat software development as a deliberate craft.",
+  longSummary: "The book begins with a pragmatic mindset.\n\nIts later chapters turn that mindset into repeatable engineering habits.",
   takeaways: ["Automate repetition", "Keep learning"],
   chapters: [{
     title: "A Pragmatic Philosophy",
@@ -181,11 +182,24 @@ test("persists summaries and merges JSON imports without replacing existing book
   assert.equal(listed.length, 2);
   assert.equal(listed.find((item) => item.id === created.id).title, "The Pragmatic Programmer — Updated");
   assert.equal(listed.find((item) => item.id === created.id).chapters[0].title, "A Pragmatic Philosophy");
+  assert.match(listed.find((item) => item.id === created.id).longSummary, /later chapters/);
   assert.deepEqual(listed.find((item) => item.id === created.id).tags, ["Technology"]);
   assert.deepEqual(listed.find((item) => item.id === created.id).collections, ["Work references", "Read again"]);
   assert.equal(listed.find((item) => item.id === created.id).favorite, true);
   assert.deepEqual(listed.find((item) => item.id === "second-book").tags, ["Technology", "Databases", "Distributed Systems"]);
   assert.ok(listed.some((item) => item.id === "second-book"));
+});
+
+test("accepts long-summary aliases and preserves an existing extended summary when an import omits it", async () => {
+  const aliased = validateImport({ ...book, id:"alias-book", longSummary:undefined, "long-summary":"A connected account of every chapter." })[0];
+  assert.equal(aliased.longSummary,"A connected account of every chapter.");
+  const base=await baseUrl(),existing=(await (await fetch(`${base}/api/books`)).json()).books.find((item)=>item.id==="second-book");
+  await fetch(`${base}/api/books/second-book`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...existing,longSummary:"Keep this extended narrative."})});
+  const {longSummary,...withoutLongSummary}=existing;
+  const response=await fetch(`${base}/api/books/import`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...withoutLongSummary,title:"Imported without extended summary"})});
+  assert.equal(response.status,200);
+  const stored=(await response.json()).books.find((item)=>item.id==="second-book");
+  assert.equal(stored.longSummary,"Keep this extended narrative.");
 });
 
 test("stores structured edition metadata and publishes it with the cover", async () => {

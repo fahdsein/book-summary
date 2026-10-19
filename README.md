@@ -141,6 +141,8 @@ The PDF is currently associated with the book rather than with one specific edit
 - `tags` is an array of up to 12 strings. Older files containing only `genre` remain valid and become a one-tag book.
 - `collections` is an optional array of up to 12 personal shelf names; `favorite` is an optional boolean.
 - Chapter notes use `chapters: [{ "title": "...", "summary": "...", "takeaways": ["..."] }]`; older files without `chapters` remain valid.
+- `longSummary` is an optional extended narrative of up to 30,000 characters. Imports also accept `long-summary` and `long_summary`, but exports use `longSummary`.
+- When an import updates an existing ID, omitting `longSummary` preserves the stored extended summary. Set it to an empty string or `null` to clear it intentionally.
 - Summaries not included in the file remain in the database.
 - A record without an ID receives a new ID and is added.
 - Cover and PDF binaries are not embedded in JSON exports. Edition covers and uploaded PDFs remain in Object Storage.

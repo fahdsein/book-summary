@@ -1,0 +1,17 @@
+{
+  "title": "Example Book",
+  "author": "Example Author",
+  "tags": ["Learning"],
+  "rating": 5,
+  "finishedAt": "2026-10-19",
+  "color": "sage",
+  "bigIdea": "A concise statement of the book's central idea.",
+  "longSummary": "The book begins by introducing its central problem and the assumptions behind it.\n\nThe middle chapters develop that idea through examples, showing how each concept leads into the next.\n\nBy the final chapter, the earlier lessons come together as one practical framework the reader can apply.",
+  "takeaways": [
+    "The first practical lesson",
+    "The principle that connects the chapters"
+  ],
+  "chapters": [],
+  "quote": "",
+  "audience": "Readers who want a connected understanding of the whole book"
+}

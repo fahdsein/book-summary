@@ -58,6 +58,11 @@
           <section class="private-document-form form-span" aria-labelledby="private-document-title"><div><p class="eyebrow">Administrator only</p><h3 id="private-document-title">Private book document</h3><p>The document never appears in the public library. Choose either an external PDF URL or a private S3 upload.</p></div><label>Private PDF URL<input id="book-pdf-url" name="pdfUrl" type="url" maxlength="2000" placeholder="https://example.com/private-reading-copy.pdf"></label><label>Or upload a private PDF<input id="book-pdf-file" name="pdfFile" type="file" accept="application/pdf"><small id="pdf-help">Optional · stored privately in S3 · maximum 25 MiB · selecting a file replaces the URL source</small></label></section>
         </div>
         <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
+        <details class="extended-summary-editor">
+          <summary><span><strong>Extended summary</strong><small>Optional · connect the chapters in one flowing narrative</small></span><span id="long-summary-status">Not added</span></summary>
+          <label>Extended summary<textarea id="book-long-summary" name="longSummary" maxlength="30000" rows="12" placeholder="Tell the book's complete story in your own words. Explain how its chapters and ideas build on one another."></textarea><small>Plain text with paragraph breaks · up to 30,000 characters</small></label>
+          <div class="field-counter"><span id="long-summary-words">0 words</span><span id="long-summary-count">0 / 30,000</span></div>
+        </details>
         <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="3600" rows="4" placeholder="One takeaway per line"></textarea></label>
         <section class="chapter-editor" aria-labelledby="chapter-editor-title">
           <div class="chapter-editor-heading">
