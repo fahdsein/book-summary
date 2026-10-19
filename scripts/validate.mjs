@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs", "lib/storage.mjs", "lib/validation.mjs", "public/index.html", "public/admin.html", "public/themes-admin.html", "public/styles.css", "public/app.js", "public/admin.js", "public/themes-admin.js", "public/fonts/inter-latin-variable.woff2", "public/fonts/literata-latin-variable.woff2", "public/fonts/Inter-OFL.txt", "public/fonts/Literata-OFL.txt"];
+const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs", "lib/storage.mjs", "lib/validation.mjs", "public/index.html", "public/graph.html", "public/admin.html", "public/themes-admin.html", "public/styles.css", "public/graph.css", "public/app.js", "public/graph.js", "public/admin.js", "public/themes-admin.js", "public/fonts/inter-latin-variable.woff2", "public/fonts/literata-latin-variable.woff2", "public/fonts/Inter-OFL.txt", "public/fonts/Literata-OFL.txt"];
 for (const file of required) await readFile(new URL(`../${file}`, import.meta.url));
 
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
@@ -19,6 +19,11 @@ for (const id of ["auth-form", "admin-workspace", "admin-books", "admin-sort", "
 const themesAdminHtml = await readFile(new URL("../public/themes-admin.html", import.meta.url), "utf8");
 for (const id of ["auth-form", "admin-workspace", "theme-search", "theme-page-size", "theme-list", "theme-pagination", "import-theme", "theme-import-file", "admin-version"]) {
   if (!themesAdminHtml.includes(`id="${id}"`)) throw new Error(`Missing required theme admin UI element: ${id}`);
+}
+
+const graphHtml = await readFile(new URL("../public/graph.html", import.meta.url), "utf8");
+for (const id of ["graph-search", "graph-collection", "graph-limit", "show-topics", "show-authors", "knowledge-graph", "graph-detail", "graph-list", "graph-reset"]) {
+  if (!graphHtml.includes(`id="${id}"`)) throw new Error(`Missing required graph UI element: ${id}`);
 }
 
 const server = await readFile(new URL("../server.mjs", import.meta.url), "utf8");

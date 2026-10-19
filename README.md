@@ -11,6 +11,7 @@ ShelfNotes is a persistent book-summary web service prepared for NEO App. Postgr
 - Pagination at **12 books per page**, chosen to divide evenly across four-, three-, two-, and one-column layouts
 - A visitor-local clock with date and IANA timezone plus a randomized memorable line from stored books
 - Separate `/admin` workspace for all book CRUD, full-library import/export, and cover management
+- Responsive `/graph` knowledge map connecting public books, authors, and existing topic tags
 - Up to 12 tags per book; the first tag remains the backward-compatible primary `genre`
 - Structured chapter-by-chapter summaries and core takeaways
 - Chapter-only JSON import inside the add/edit form

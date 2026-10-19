@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="matcha">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Explore connections between books, authors, and ideas in ShelfNotes.">
+    <meta name="theme-color" content="#f7f8f5">
+    <title>ShelfNotes · Knowledge graph</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css?v=5.0.0">
+    <link rel="stylesheet" href="/graph.css?v=5.0.0">
+    <script src="/graph.js?v=5.0.0" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ShelfNotes home"><span class="brand-mark" aria-hidden="true">S</span><span><strong>ShelfNotes</strong><small>Your reading, connected</small></span></a>
+      <nav class="header-actions" aria-label="Primary navigation"><a class="button quiet header-button" href="/">Library</a><a class="button quiet header-button" href="/graph" aria-current="page">Knowledge graph</a><a class="button quiet header-button" href="/admin/books">Admin</a></nav>
+    </header>
+    <main class="graph-main">
+      <section class="graph-hero">
+        <div><p class="eyebrow">Explore relationships</p><h1>Knowledge graph</h1><p>Follow the ideas, authors, and books that connect your reading. Every link is derived from information already stored in your library.</p></div>
+        <div class="graph-legend" aria-label="Graph legend"><span><i class="legend-book"></i>Book</span><span><i class="legend-topic"></i>Topic</span><span><i class="legend-author"></i>Author</span></div>
+      </section>
+      <section class="graph-controls" aria-label="Knowledge graph controls">
+        <label class="search" for="graph-search"><span aria-hidden="true">⌕</span><input id="graph-search" type="search" autocomplete="off" placeholder="Find a book, author, or topic…"></label>
+        <label>Collection<select id="graph-collection"><option value="All">All collections</option></select></label>
+        <label>Books shown<select id="graph-limit"><option value="20">20</option><option value="35" selected>35</option><option value="50">50</option><option value="75">75</option></select></label>
+        <div class="graph-type-controls" role="group" aria-label="Visible node types"><label><input id="show-topics" type="checkbox" checked>Topics</label><label><input id="show-authors" type="checkbox" checked>Authors</label></div>
+        <button id="graph-reset" class="button quiet" type="button">Reset view</button>
+      </section>
+      <div id="graph-notice" class="service-notice" role="status" hidden></div>
+      <section class="graph-layout">
+        <div class="graph-stage-wrap">
+          <div class="graph-stage-heading"><div><p class="eyebrow">Relationship map</p><h2 id="graph-title">All connected notes</h2></div><p id="graph-count" aria-live="polite"></p></div>
+          <div id="graph-stage" class="graph-stage" tabindex="0" aria-label="Interactive knowledge graph. Select a node to inspect its connections.">
+            <svg id="knowledge-graph" role="img" aria-labelledby="graph-svg-title graph-svg-desc"><title id="graph-svg-title">ShelfNotes knowledge graph</title><desc id="graph-svg-desc">Books connect to their authors and topics. Select a node for details.</desc><g id="graph-viewport"><g id="graph-links"></g><g id="graph-nodes"></g></g></svg>
+            <div class="graph-zoom" aria-label="Graph zoom controls"><button id="zoom-in" type="button" aria-label="Zoom in">＋</button><button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="zoom-fit" type="button" aria-label="Fit graph">⌂</button></div>
+            <p class="graph-hint">Drag nodes · scroll to zoom · select to focus</p>
+          </div>
+        </div>
+        <aside id="graph-detail" class="graph-detail" aria-live="polite">
+          <div class="graph-empty-detail"><span aria-hidden="true">◇</span><h2>Select a node</h2><p>Choose a book, author, or topic to see why it connects to the rest of your library.</p></div>
+        </aside>
+      </section>
+      <details class="graph-list-fallback"><summary>Browse as an accessible list</summary><div id="graph-list" class="graph-list"></div></details>
+    </main>
+    <footer><span>ShelfNotes</span><p>Connections use public summary metadata only. Private PDFs are never included.</p><small id="app-version" class="version-badge">Version …</small></footer>
+  </body>
+</html>

@@ -124,6 +124,16 @@ test("serves separate book and theme admin pages without file extensions", async
   assert.match(head.headers.get("content-type"), /^text\/html/);
 });
 
+test("serves the knowledge graph without a file extension", async () => {
+  for (const pathname of ["/graph","/graph/"]) {
+    const response=await fetch(`${await baseUrl()}${pathname}`),body=await response.text();
+    assert.equal(response.status,200);
+    assert.match(response.headers.get("content-type"),/^text\/html/);
+    assert.match(body,/Knowledge graph/);
+    assert.match(body,/graph\.js/);
+  }
+});
+
 test("imports, publishes, lists, and deletes a custom theme", async () => {
   const base = await baseUrl();
   const theme = { id:"forest-study",name:"Forest Study",tokens:{bg:"#eef3ed",surface:"#ffffff",surface2:"#dfe9df",ink:"#203128",muted:"#627269",accent:"#376b4d",accent2:"#b98b45",line:"#cad8cd",danger:"#a4433e",coverInk:"#ffffff",themeColor:"#eef3ed"} };
