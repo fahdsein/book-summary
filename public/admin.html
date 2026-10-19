@@ -7,8 +7,9 @@
     <meta name="theme-color" content="#f7f8f5">
     <title>ShelfNotes Admin · Book management</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=5.0.0">
-    <script src="/admin.js?v=5.0.0" defer></script>
+    <link rel="stylesheet" href="/styles.css?v=5.2.0">
+    <script src="/markdown.js?v=5.2.0" defer></script>
+    <script src="/admin.js?v=5.2.0" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -31,7 +32,7 @@
       <section id="admin-workspace" hidden>
         <div class="admin-toolbar">
           <div class="admin-discovery"><label class="search" for="admin-search"><span aria-hidden="true">⌕</span><input id="admin-search" type="search" autocomplete="off" placeholder="Search title, author, tag, collection, or edition…"></label><label class="compact-select">Sort<select id="admin-sort"><option value="updated-desc">Recently updated</option><option value="title-asc">Title A–Z</option><option value="author-asc">Author A–Z</option><option value="rating-desc">Highest rating</option><option value="finished-desc">Recently finished</option></select></label><label class="compact-select">Per page<select id="admin-page-size"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select></label></div>
-          <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+          <div class="admin-actions"><button id="export-books" class="button quiet" type="button">Export JSON</button><button id="import-books" class="button quiet" type="button">Import JSON / MD</button><button id="open-add" class="button primary" type="button">＋ Add book</button><input id="import-file" type="file" accept="application/json,text/markdown,.json,.md,.markdown" hidden></div>
         </div>
         <div class="admin-summary"><div><p class="eyebrow">Library records</p><h2>Books</h2></div><p id="admin-count" aria-live="polite"></p></div>
         <section id="admin-books" class="admin-book-list" aria-live="polite"></section>
@@ -60,7 +61,9 @@
         <label>The big idea<textarea id="book-idea" name="bigIdea" required maxlength="600" rows="3" placeholder="What is the central idea in your own words?"></textarea></label>
         <details class="extended-summary-editor">
           <summary><span><strong>Extended summary</strong><small>Optional · connect the chapters in one flowing narrative</small></span><span id="long-summary-status">Not added</span></summary>
-          <label>Extended summary<textarea id="book-long-summary" name="longSummary" maxlength="30000" rows="12" placeholder="Tell the book's complete story in your own words. Explain how its chapters and ideas build on one another."></textarea><small>Plain text with paragraph breaks · up to 30,000 characters</small></label>
+          <div class="markdown-tabs" role="tablist" aria-label="Extended summary editor mode"><button id="long-summary-write-tab" class="active" type="button" role="tab" aria-selected="true">Write</button><button id="long-summary-preview-tab" type="button" role="tab" aria-selected="false">Preview</button></div>
+          <div id="long-summary-write" class="markdown-write-pane"><div class="markdown-toolbar" aria-label="Markdown formatting"><button type="button" data-markdown="h2" title="Heading">H2</button><button type="button" data-markdown="h3" title="Subheading">H3</button><button type="button" data-markdown="bold" title="Bold"><strong>B</strong></button><button type="button" data-markdown="italic" title="Italic"><em>I</em></button><button type="button" data-markdown="list" title="Bulleted list">• List</button><button type="button" data-markdown="quote" title="Blockquote">❯ Quote</button><button type="button" data-markdown="rule" title="Divider">—</button><button type="button" data-markdown="link" title="Link">Link</button></div><label>Markdown content<textarea id="book-long-summary" name="longSummary" maxlength="30000" rows="14" placeholder="## Introduction&#10;&#10;Tell the book's complete story and explain how its chapters build on one another."></textarea><small>Supports headings, emphasis, lists, blockquotes, links, code, and dividers · up to 30,000 characters</small></label></div>
+          <div id="long-summary-preview" class="markdown-preview" role="tabpanel" hidden><p class="markdown-empty">Add Markdown content to preview it here.</p></div>
           <div class="field-counter"><span id="long-summary-words">0 words</span><span id="long-summary-count">0 / 30,000</span></div>
         </details>
         <label>Key takeaways<textarea id="book-takeaways" name="takeaways" required maxlength="3600" rows="4" placeholder="One takeaway per line"></textarea></label>
@@ -75,6 +78,15 @@
         <label>Who should read it<input id="book-audience" name="audience" required maxlength="300"></label>
         <div class="dialog-actions"><button class="button quiet" type="button" data-close="book-dialog">Cancel</button><button class="button primary" type="submit">Save summary</button></div>
       </form>
+    </dialog>
+
+    <dialog id="markdown-import-dialog" class="dialog form-dialog markdown-import-dialog" aria-labelledby="markdown-import-title">
+      <button class="dialog-close" type="button" data-close="markdown-import-dialog" aria-label="Close Markdown import preview">×</button>
+      <div class="dialog-intro"><p class="eyebrow">Markdown import preview</p><h2 id="markdown-import-title">Update extended summary</h2><p>Review the matched book before replacing its extended summary.</p></div>
+      <dl class="import-preview-meta"><dt>Matched book</dt><dd id="markdown-import-book"></dd><dt>Book ID</dt><dd><code id="markdown-import-id"></code></dd><dt>Incoming content</dt><dd id="markdown-import-size"></dd><dt>Current content</dt><dd id="markdown-current-size"></dd></dl>
+      <p id="markdown-import-warning" class="import-warning" hidden>This book already has an extended summary. Importing will replace it.</p>
+      <div id="markdown-import-preview" class="markdown-preview import-markdown-preview"></div>
+      <div class="dialog-actions"><button class="button quiet" type="button" data-close="markdown-import-dialog">Cancel</button><button id="confirm-markdown-import" class="button primary" type="button">Import extended summary</button></div>
     </dialog>
 
     <dialog id="media-dialog" class="dialog form-dialog media-dialog" aria-labelledby="media-title">

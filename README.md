@@ -1,6 +1,6 @@
 # ShelfNotes Book Summary
 
-Current release: **v5.0.0**
+Current release: **v5.2.0**
 
 ShelfNotes is a persistent book-summary web service prepared for NEO App. PostgreSQL stores the shared library, while S3-compatible Object Storage stores private edition-cover images and optional PDF files. Importing JSON **merges** records by book ID; it does not erase books that are already in the database.
 
@@ -85,7 +85,7 @@ Attach the NEO DB if the form provides an attachment control. The important resu
 | Variable | Required value |
 |---|---|
 | `NODE_ENV` | `production` |
-| `APP_VERSION` | Optional override; omit it to use the version in `package.json` (`5.0.0`) |
+| `APP_VERSION` | Optional override; omit it to use the version in `package.json` (`5.2.0`) |
 | `BUILD_REVISION` | Optional Git commit, image tag, or deployment identifier shown beside the version |
 | `DATABASE_URL` | PostgreSQL connection string from NEO DB |
 | `DATABASE_AUTO_MIGRATE` | `true` for the initial deployment |
@@ -135,7 +135,7 @@ The PDF is currently associated with the book rather than with one specific edit
 
 ## JSON import behavior
 
-- In **Admin → Books**, use **Copy JSON** on a book to copy its current import-ready object. Edit the copied `longSummary` and keep the `id` unchanged; importing it will update that book instead of creating a duplicate.
+- In **Admin → Books**, open a book's **Export** menu to copy or download its import-ready JSON, or its identity-aware extended-summary Markdown template.
 - A file may contain one book object, an array of books, or an object with a `books` array.
 - A new ID creates a new summary.
 - An existing ID updates that summary's text but preserves its current edition covers and uploaded PDF.
@@ -149,6 +149,32 @@ The PDF is currently associated with the book rather than with one specific edit
 - Cover and PDF binaries are not embedded in JSON exports. Edition covers and uploaded PDFs remain in Object Storage.
 - Bibliographic edition metadata belongs to the existing S3-backed cover record and is managed from **Admin → Media**; it is not overwritten by a normal book JSON import.
 - An external PDF URL may be imported for a newly created record. A merge into an existing ID preserves that record's current PDF source to avoid silently replacing private media.
+
+## Import an extended summary from Markdown
+
+1. Open **Admin → Books** and locate the existing book.
+2. Open **Export**, then choose **Download summary MD** or **Copy summary MD**. This guarantees that the file contains the book's stable ID and current title and author.
+3. Write the extended summary below the front matter. Keep `bookId` unchanged.
+4. Select **Import JSON / MD** and choose the `.md` file.
+5. Review the matched book, incoming size, existing size, and rendered preview. Confirm the replacement when the book already has an extended summary.
+
+The Markdown file must use this format:
+
+```markdown
+---
+schemaVersion: 1
+bookId: "existing-book-id"
+bookTitle: "Grit: The Power of Passion and Perseverance"
+author: "Angela Duckworth"
+field: "longSummary"
+---
+
+## Introduction
+
+Write the connected narrative here.
+```
+
+Markdown imports update only `longSummary`; they never create a book or replace its other fields. The server rejects unknown IDs and title or author mismatches. Supported presentation includes headings, paragraphs, bold, italic, lists, blockquotes, links, code blocks, and horizontal dividers. Raw HTML is displayed as text rather than executed.
 
 ## Import chapter summaries while editing
 
@@ -167,7 +193,7 @@ Use [examples/chapters.example.json](./examples/chapters.example.json) as a begi
 - `BUILD_REVISION` is optional and should contain a short non-secret Git commit, image tag, or deployment identifier.
 - `GET /api/meta` returns the public version metadata.
 - `GET /healthz` includes the version to make runtime verification easier.
-- Increase the package version whenever a deployable behavior or schema changes. Version `5.0.0` adds structured edition metadata, collections, favorites, and combined public discovery controls while retaining private document access and the existing reading experience.
+- Increase the package version whenever a deployable behavior or schema changes. Version `5.2.0` adds safe Markdown authoring, preview, export, and identity-aware extended-summary imports while retaining JSON compatibility.
 
 ### Font licensing
 

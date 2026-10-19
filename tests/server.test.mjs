@@ -7,7 +7,7 @@ delete process.env.NODE_ENV;
 
 const { startServer } = await import("../server.mjs");
 const { addBookCover,legacyCoverFromRow,updateBookEdition } = await import("../lib/database.mjs");
-const { validateImport,validateThemeImport } = await import("../lib/validation.mjs");
+const { validateImport,validateLongSummaryMarkdown,validateThemeImport } = await import("../lib/validation.mjs");
 const server = startServer(0);
 after(() => new Promise((resolve) => server.close(resolve)));
 
@@ -47,20 +47,26 @@ test("accepts single, array, and wrapped JSON import formats", () => {
   assert.equal(validateThemeImport({themes:[theme]}).length,1);
 });
 
+test("validates identity-aware extended-summary Markdown", () => {
+  const markdown='---\nschemaVersion: 1\nbookId: "book-1"\nbookTitle: "Grit"\nauthor: "Angela Duckworth"\nfield: "longSummary"\n---\n\n## Introduction\n\nA **connected** narrative.';
+  assert.deepEqual(validateLongSummaryMarkdown(markdown),{bookId:"book-1",bookTitle:"Grit",author:"Angela Duckworth",longSummary:"## Introduction\n\nA **connected** narrative."});
+  assert.throws(()=>validateLongSummaryMarkdown("## Missing identity"),/front matter/);
+});
+
 test("serves liveness and dependency-aware readiness probes", async () => {
   const base = await baseUrl();
   const health = await fetch(`${base}/healthz`);
   const ready = await fetch(`${base}/readyz`);
   assert.equal(health.status, 200);
   assert.equal(ready.status, 200);
-  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "5.0.0" });
+  assert.deepEqual(await health.json(), { status: "ok", service: "shelfnotes", version: "5.2.0" });
   assert.deepEqual(await ready.json(), { status: "ready", dependencies: { database: "memory", storage: "not_configured" } });
 });
 
 test("publishes non-secret application version metadata", async () => {
   const response = await fetch(`${await baseUrl()}/api/meta`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "5.0.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
+  assert.deepEqual(await response.json(), { name: "ShelfNotes", version: "5.2.0", revision: "", booksPerPage:12, maxCoversPerBook:8, maxPdfBytes:26214400 });
 });
 
 test("serves self-hosted reading fonts with the correct content type", async () => {
@@ -200,6 +206,21 @@ test("accepts long-summary aliases and preserves an existing extended summary wh
   assert.equal(response.status,200);
   const stored=(await response.json()).books.find((item)=>item.id==="second-book");
   assert.equal(stored.longSummary,"Keep this extended narrative.");
+});
+
+test("previews replacement semantics and imports Markdown only into its matching book", async () => {
+  const base=await baseUrl(),existing=(await (await fetch(`${base}/api/books`)).json()).books.find((item)=>item.id==="second-book");
+  const markdown=`---\nschemaVersion: 1\nbookId: ${JSON.stringify(existing.id)}\nbookTitle: ${JSON.stringify(existing.title)}\nauthor: ${JSON.stringify(existing.author)}\nfield: "longSummary"\n---\n\n## A connected account\n\nThe chapters now form one **continuous** argument.`;
+  const needsConfirmation=await fetch(`${base}/api/books/import-markdown`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({markdown})});
+  assert.equal(needsConfirmation.status,409);
+  const mismatch=await fetch(`${base}/api/books/import-markdown`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({markdown:markdown.replace(`bookTitle: ${JSON.stringify(existing.title)}`,`bookTitle: "Wrong title"`),replace:true})});
+  assert.equal(mismatch.status,409);
+  const imported=await fetch(`${base}/api/books/import-markdown`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({markdown,replace:true})});
+  assert.equal(imported.status,200);
+  const updated=(await imported.json()).book;
+  assert.equal(updated.id,"second-book");
+  assert.match(updated.longSummary,/\*\*continuous\*\*/);
+  assert.equal(updated.title,existing.title);
 });
 
 test("stores structured edition metadata and publishes it with the cover", async () => {

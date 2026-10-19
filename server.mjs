@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addBookCover,clearBookPdf,clearBookPdfFile,closeDatabase,databaseReady,getActiveTheme,getBook,getCover,importBooks,listBooks,listThemes,removeBook,removeBookCover,removeTheme,saveBook,saveTheme,setActiveTheme,setBookPdfFile,setPrimaryCover,updateBookEdition } from "./lib/database.mjs";
 import { deleteObject,readObject,storageReady,uploadCover,uploadPdf,validateCoverType } from "./lib/storage.mjs";
-import { validateBook,validateEdition,validateImport,validateThemeImport } from "./lib/validation.mjs";
+import { validateBook,validateEdition,validateImport,validateLongSummaryMarkdown,validateThemeImport } from "./lib/validation.mjs";
 
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR=path.join(ROOT,"public");
@@ -56,6 +56,15 @@ async function handleApi(request,response,url){
   if(request.method==="GET"&&url.pathname==="/api/meta"){json(response,200,{name:"ShelfNotes",version:APP_VERSION,revision:BUILD_REVISION,booksPerPage:12,maxCoversPerBook:8,maxPdfBytes:MAX_PDF_BYTES});return true;}
   if(request.method==="POST"&&url.pathname==="/api/books"){const book=validateBook(await readJson(request),{allowId:false});json(response,201,{book:adminBook(await saveBook(book))});return true;}
   if(request.method==="POST"&&url.pathname==="/api/books/import"){const imported=validateImport(await readJson(request));const books=await importBooks(imported);json(response,200,{imported:imported.length,total:books.length,strategy:"merge",books:books.map(adminBook)});return true;}
+  if(request.method==="POST"&&url.pathname==="/api/books/import-markdown"){
+    const input=await readJson(request),document=validateLongSummaryMarkdown(input.markdown),existing=await getBook(document.bookId);
+    if(!existing){json(response,404,{error:"book_not_found",message:"No existing book matches the Markdown bookId."});return true;}
+    if(document.bookTitle&&document.bookTitle!==existing.title){json(response,409,{error:"book_title_mismatch",message:`Markdown title does not match “${existing.title}”.`});return true;}
+    if(document.author&&document.author!==existing.author){json(response,409,{error:"book_author_mismatch",message:`Markdown author does not match “${existing.author}”.`});return true;}
+    if(existing.longSummary&&!input.replace){json(response,409,{error:"extended_summary_exists",message:"This book already has an extended summary. Confirm replacement to continue."});return true;}
+    const updated=await saveBook({...existing,longSummary:document.longSummary,pdfUrl:existing.pdfUrl||""});
+    json(response,200,{book:adminBook(updated),updatedField:"longSummary"});return true;
+  }
 
   const coverUpload=url.pathname.match(/^\/api\/books\/([^/]+)\/(?:cover|covers)$/);
   if(request.method==="POST"&&coverUpload){

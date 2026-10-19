@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs", "lib/storage.mjs", "lib/validation.mjs", "public/index.html", "public/graph.html", "public/admin.html", "public/themes-admin.html", "public/styles.css", "public/graph.css", "public/app.js", "public/graph.js", "public/admin.js", "public/themes-admin.js", "public/fonts/inter-latin-variable.woff2", "public/fonts/literata-latin-variable.woff2", "public/fonts/Inter-OFL.txt", "public/fonts/Literata-OFL.txt"];
+const required = [".env.example", "Dockerfile", "server.mjs", "lib/database.mjs", "lib/storage.mjs", "lib/validation.mjs", "public/index.html", "public/graph.html", "public/admin.html", "public/themes-admin.html", "public/styles.css", "public/graph.css", "public/app.js", "public/graph.js", "public/admin.js", "public/themes-admin.js", "public/markdown.js", "public/fonts/inter-latin-variable.woff2", "public/fonts/literata-latin-variable.woff2", "public/fonts/Inter-OFL.txt", "public/fonts/Literata-OFL.txt"];
 for (const file of required) await readFile(new URL(`../${file}`, import.meta.url));
 
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-for (const id of ["books-grid", "search", "tag-filters", "collection-filter", "rating-filter", "favorite-filter", "sort-books", "page-size", "clear-filters", "pagination", "local-time", "random-quote", "detail-dialog", "detail-chapters", "detail-editions", "detail-edition-meta", "theme-select", "reader-font", "reader-size", "reader-leading", "reader-page", "app-version"]) {
+for (const id of ["books-grid", "search", "tag-filters", "collection-filter", "rating-filter", "favorite-filter", "sort-books", "page-size", "clear-filters", "pagination", "local-time", "random-quote", "detail-dialog", "detail-chapters", "detail-editions", "detail-edition-meta", "detail-long-summary-toc", "theme-select", "reader-font", "reader-size", "reader-leading", "reader-page", "app-version"]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Missing required UI element: ${id}`);
 }
 for (const theme of ["minimalist","cosmic","paper-journal","aurora"]) {
@@ -12,7 +12,7 @@ for (const theme of ["minimalist","cosmic","paper-journal","aurora"]) {
 }
 
 const adminHtml = await readFile(new URL("../public/admin.html", import.meta.url), "utf8");
-for (const id of ["auth-form", "admin-workspace", "admin-books", "admin-sort", "admin-page-size", "admin-pagination", "book-dialog", "book-form", "book-tags", "book-collections", "book-favorite", "book-pdf-url", "book-pdf-file", "media-dialog", "media-covers", "edition-dialog", "edition-form", "chapter-fields", "import-chapters", "chapter-import-file", "admin-version"]) {
+for (const id of ["auth-form", "admin-workspace", "admin-books", "admin-sort", "admin-page-size", "admin-pagination", "book-dialog", "book-form", "book-tags", "book-collections", "book-favorite", "book-long-summary", "long-summary-preview", "markdown-import-dialog", "confirm-markdown-import", "book-pdf-url", "book-pdf-file", "media-dialog", "media-covers", "edition-dialog", "edition-form", "chapter-fields", "import-chapters", "chapter-import-file", "admin-version"]) {
   if (!adminHtml.includes(`id="${id}"`)) throw new Error(`Missing required admin UI element: ${id}`);
 }
 
@@ -27,7 +27,7 @@ for (const id of ["graph-search", "graph-collection", "graph-limit", "show-topic
 }
 
 const server = await readFile(new URL("../server.mjs", import.meta.url), "utf8");
-for (const endpoint of ["/healthz", "/readyz", "/api/books", "/api/covers", "/api/admin/books", "/pdf", "/api/meta", "/api/admin/status", "0.0.0.0"]) {
+for (const endpoint of ["/healthz", "/readyz", "/api/books", "/api/books/import-markdown", "/api/covers", "/api/admin/books", "/pdf", "/api/meta", "/api/admin/status", "0.0.0.0"]) {
   if (!server.includes(endpoint)) throw new Error(`Missing deployment requirement: ${endpoint}`);
 }
 
